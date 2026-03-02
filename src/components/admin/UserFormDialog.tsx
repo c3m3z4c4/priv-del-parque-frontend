@@ -248,14 +248,17 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, houses }: U
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Casa asignada</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                    <Select
+                      onValueChange={(v) => field.onChange(v === 'none' ? '' : v)}
+                      value={field.value || 'none'}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Sin asignar" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">Sin asignar</SelectItem>
+                        <SelectItem value="none">Sin asignar</SelectItem>
                         {houses.map((h) => (
                           <SelectItem key={h.id} value={h.id}>{h.houseNumber}</SelectItem>
                         ))}
