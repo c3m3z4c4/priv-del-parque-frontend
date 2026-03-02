@@ -1,77 +1,37 @@
 import { User, House, Meeting, GreenAreaEvent } from '@/types';
 
-// Mock Users
+// Mock Users (kept for reference only; app now uses real API)
 export const mockUsers: User[] = [
   {
     id: '1',
-    name: 'Administrador General',
+    name: 'Administrador',
+    lastName: 'General',
     email: 'admin@privadasdelparque.com',
     role: 'ADMIN',
   },
   {
     id: '2',
-    name: 'Juan Pérez García',
+    name: 'Juan',
+    lastName: 'Pérez García',
     email: 'juan.perez@email.com',
     role: 'VECINO',
     houseId: '1',
   },
   {
     id: '3',
-    name: 'María López Hernández',
+    name: 'María',
+    lastName: 'López Hernández',
     email: 'maria.lopez@email.com',
     role: 'VECINO',
     houseId: '2',
   },
-  {
-    id: '4',
-    name: 'Carlos Rodríguez Martínez',
-    email: 'carlos.rodriguez@email.com',
-    role: 'VECINO',
-    houseId: '3',
-  },
 ];
 
-// Mock passwords (in real app, this would be hashed in DB)
-export const mockPasswords: Record<string, string> = {
-  'admin@privadasdelparque.com': 'admin123',
-  'juan.perez@email.com': 'vecino123',
-  'maria.lopez@email.com': 'vecino123',
-  'carlos.rodriguez@email.com': 'vecino123',
-};
-
-// Mock Houses
+// Mock Houses (kept for reference only; app now uses real API)
 export const mockHouses: House[] = [
-  {
-    id: '1',
-    houseNumber: 'A-101',
-    responsibleName: 'Juan Pérez García',
-    responsibleUserId: '2',
-    status: 'active',
-    createdAt: '2024-01-15',
-  },
-  {
-    id: '2',
-    houseNumber: 'A-102',
-    responsibleName: 'María López Hernández',
-    responsibleUserId: '3',
-    status: 'active',
-    createdAt: '2024-01-15',
-  },
-  {
-    id: '3',
-    houseNumber: 'B-201',
-    responsibleName: 'Carlos Rodríguez Martínez',
-    responsibleUserId: '4',
-    status: 'active',
-    createdAt: '2024-01-20',
-  },
-  {
-    id: '4',
-    houseNumber: 'B-202',
-    responsibleName: 'Sin asignar',
-    status: 'inactive',
-    createdAt: '2024-01-20',
-  },
+  { id: '1', houseNumber: 'A-101', status: 'active', createdAt: '2024-01-15' },
+  { id: '2', houseNumber: 'A-102', status: 'active', createdAt: '2024-01-15' },
+  { id: '3', houseNumber: 'B-201', status: 'inactive', createdAt: '2024-01-20' },
 ];
 
 // Mock Meetings

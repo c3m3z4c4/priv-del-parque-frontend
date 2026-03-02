@@ -1,19 +1,25 @@
-export type UserRole = 'ADMIN' | 'VECINO';
+export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'VECINO';
 
 export interface User {
   id: string;
   name: string;
+  lastName: string;
   email: string;
+  phone?: string;
+  address?: string;
   role: UserRole;
   houseId?: string;
+  house?: House;
+  isActive?: boolean;
+  createdAt?: string;
 }
 
 export interface House {
   id: string;
   houseNumber: string;
-  responsibleName: string;
-  responsibleUserId?: string;
+  address?: string;
   status: 'active' | 'inactive';
+  residents?: User[];
   createdAt: string;
 }
 
@@ -53,6 +59,7 @@ export interface Rsvp {
 
 export interface AuthState {
   user: User | null;
+  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
 }

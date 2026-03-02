@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, AuthState } from '@/types';
-import { mockUsers, mockPasswords } from '@/data/mockData';
+import { authApi, getToken, setToken, clearToken } from '@/lib/api';
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -9,28 +9,26 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_STORAGE_KEY = 'privadas_auth_user';
+const AUTH_USER_KEY = 'privadas_auth_user';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
+    token: null,
     isAuthenticated: false,
     isLoading: true,
   });
 
   useEffect(() => {
-    // Check for existing session on mount
-    const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (storedUser) {
+    const token = getToken();
+    const storedUser = localStorage.getItem(AUTH_USER_KEY);
+    if (token && storedUser) {
       try {
         const user = JSON.parse(storedUser) as User;
-        setAuthState({
-          user,
-          isAuthenticated: true,
-          isLoading: false,
-        });
+        setAuthState({ user, token, isAuthenticated: true, isLoading: false });
       } catch {
-        localStorage.removeItem(AUTH_STORAGE_KEY);
+        clearToken();
+        localStorage.removeItem(AUTH_USER_KEY);
         setAuthState(prev => ({ ...prev, isLoading: false }));
       }
     } else {
@@ -39,36 +37,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    const correctPassword = mockPasswords[email];
-    if (!correctPassword || correctPassword !== password) {
-      return { success: false, error: 'Credenciales incorrectas' };
+    try {
+      const { access_token, user } = await authApi.login(email, password);
+      setToken(access_token);
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+      setAuthState({ user, token: access_token, isAuthenticated: true, isLoading: false });
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Credenciales incorrectas' };
     }
-
-    const user = mockUsers.find(u => u.email === email);
-    if (!user) {
-      return { success: false, error: 'Usuario no encontrado' };
-    }
-
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-    setAuthState({
-      user,
-      isAuthenticated: true,
-      isLoading: false,
-    });
-
-    return { success: true };
   };
 
   const logout = () => {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    setAuthState({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-    });
+    clearToken();
+    localStorage.removeItem(AUTH_USER_KEY);
+    setAuthState({ user: null, token: null, isAuthenticated: false, isLoading: false });
   };
 
   return (

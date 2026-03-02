@@ -6,6 +6,7 @@ import { TablePagination, paginate } from '@/components/admin/TablePagination';
 import { exportToCSV } from '@/lib/exportCSV';
 import { useUsers, useHouses } from '@/hooks/useDataStore';
 import { User } from '@/types';
+import { CreateUserPayload, UpdateUserPayload } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, Users as UsersIcon, Loader2, Shield, Home, Search, Download } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users as UsersIcon, Loader2, Shield, Home, Search, Download, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminUsers() {
@@ -26,7 +27,7 @@ export default function AdminUsers() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'VECINO'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'VECINO' | 'SUPER_ADMIN'>('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -34,22 +35,31 @@ export default function AdminUsers() {
   const handleEdit = (u: User) => { setSelectedUser(u); setFormOpen(true); };
   const handleDelete = (u: User) => { setSelectedUser(u); setDeleteOpen(true); };
 
-  const handleFormSubmit = (data: Omit<User, 'id'>) => {
-    if (selectedUser) {
-      updateUser(selectedUser.id, data);
-      toast({ title: 'Usuario actualizado', description: `"${data.name}" se actualizó correctamente.` });
-    } else {
-      addUser(data);
-      toast({ title: 'Usuario creado', description: `"${data.name}" se creó correctamente.` });
+  const handleFormSubmit = async (data: CreateUserPayload | UpdateUserPayload) => {
+    try {
+      if (selectedUser) {
+        await updateUser(selectedUser.id, data as UpdateUserPayload);
+        toast({ title: 'Usuario actualizado', description: `"${data.name}" se actualizó correctamente.` });
+      } else {
+        const created = await addUser(data as CreateUserPayload);
+        toast({ title: 'Usuario creado', description: `"${created.name}" se creó correctamente.` });
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Ocurrió un error.', variant: 'destructive' });
+      throw err;
     }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (selectedUser) {
-      deleteUser(selectedUser.id);
-      toast({ title: 'Usuario eliminado', description: `"${selectedUser.name}" fue eliminado.`, variant: 'destructive' });
-      setDeleteOpen(false);
-      setSelectedUser(null);
+      try {
+        await deleteUser(selectedUser.id);
+        toast({ title: 'Usuario eliminado', description: `"${selectedUser.name}" fue eliminado.`, variant: 'destructive' });
+        setDeleteOpen(false);
+        setSelectedUser(null);
+      } catch (err: any) {
+        toast({ title: 'Error', description: err.message || 'No se pudo eliminar.', variant: 'destructive' });
+      }
     }
   };
 
@@ -58,10 +68,17 @@ export default function AdminUsers() {
     return houses.find(h => h.id === houseId)?.houseNumber || '—';
   };
 
+  const roleBadge = (role: string) => {
+    if (role === 'SUPER_ADMIN') return <Badge className="gap-1 bg-purple-600 hover:bg-purple-700"><Star className="h-3 w-3" /> Super Admin</Badge>;
+    if (role === 'ADMIN') return <Badge variant="default" className="gap-1"><Shield className="h-3 w-3" /> Admin</Badge>;
+    return <Badge variant="secondary" className="gap-1"><Home className="h-3 w-3" /> Vecino</Badge>;
+  };
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return users.filter(u => {
-      if (q && !u.name.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q)) return false;
+      const fullName = `${u.name} ${u.lastName}`.toLowerCase();
+      if (q && !fullName.includes(q) && !u.email.toLowerCase().includes(q)) return false;
       if (roleFilter !== 'all' && u.role !== roleFilter) return false;
       return true;
     });
@@ -89,7 +106,8 @@ export default function AdminUsers() {
           </div>
           <div className="flex gap-2">
             <Button variant="outline" className="gap-2" onClick={() => exportToCSV(filtered, [
-              { key: 'name', header: 'Nombre' }, { key: 'email', header: 'Email' },
+              { key: 'name', header: 'Nombre' }, { key: 'lastName', header: 'Apellidos' },
+              { key: 'email', header: 'Email' }, { key: 'phone', header: 'Teléfono' },
               { key: 'role', header: 'Rol' },
             ], 'usuarios')} disabled={filtered.length === 0}>
               <Download className="h-4 w-4" /> CSV
@@ -107,11 +125,12 @@ export default function AdminUsers() {
             <Input placeholder="Buscar por nombre o email..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
           </div>
           <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v as typeof roleFilter)}>
-            <SelectTrigger className="w-full sm:w-[160px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos los roles</SelectItem>
+              <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
               <SelectItem value="ADMIN">Admin</SelectItem>
               <SelectItem value="VECINO">Vecino</SelectItem>
             </SelectContent>
@@ -141,8 +160,9 @@ export default function AdminUsers() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Nombre</TableHead>
-                        <TableHead>Email</TableHead>
+                        <TableHead className="hidden sm:table-cell">Email</TableHead>
                         <TableHead>Rol</TableHead>
+                        <TableHead className="hidden md:table-cell">Teléfono</TableHead>
                         <TableHead className="hidden md:table-cell">Casa</TableHead>
                         <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
@@ -150,14 +170,10 @@ export default function AdminUsers() {
                     <TableBody>
                       {paginate(filtered, page, pageSize).map((u) => (
                         <TableRow key={u.id}>
-                          <TableCell className="font-medium">{u.name}</TableCell>
-                          <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                          <TableCell>
-                            <Badge variant={u.role === 'ADMIN' ? 'default' : 'secondary'} className="gap-1">
-                              {u.role === 'ADMIN' ? <Shield className="h-3 w-3" /> : <Home className="h-3 w-3" />}
-                              {u.role === 'ADMIN' ? 'Admin' : 'Vecino'}
-                            </Badge>
-                          </TableCell>
+                          <TableCell className="font-medium">{u.name} {u.lastName}</TableCell>
+                          <TableCell className="hidden sm:table-cell text-muted-foreground">{u.email}</TableCell>
+                          <TableCell>{roleBadge(u.role)}</TableCell>
+                          <TableCell className="hidden md:table-cell text-muted-foreground">{u.phone || '—'}</TableCell>
                           <TableCell className="hidden md:table-cell">{getHouseNumber(u.houseId)}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1">

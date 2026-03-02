@@ -83,8 +83,8 @@ export default function VecinoProfile() {
                       </p>
                     </div>
                     <div className="rounded-lg bg-muted/50 p-3">
-                      <p className="text-sm font-medium">Responsable</p>
-                      <p className="text-sm text-muted-foreground">{userHouse.responsibleName}</p>
+                      <p className="text-sm font-medium">Dirección</p>
+                      <p className="text-sm text-muted-foreground">{userHouse.address || '—'}</p>
                     </div>
                   </div>
                 </div>

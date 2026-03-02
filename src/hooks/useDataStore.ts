@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Meeting, GreenAreaEvent, House, User, Rsvp, RsvpStatus } from '@/types';
-import { mockMeetings, mockEvents, mockHouses, mockUsers } from '@/data/mockData';
+import { mockMeetings, mockEvents } from '@/data/mockData';
+import { usersApi, housesApi, CreateUserPayload, UpdateUserPayload, CreateHousePayload, UpdateHousePayload } from '@/lib/api';
 
 const MEETINGS_KEY = 'privadas_meetings';
 const EVENTS_KEY = 'privadas_events';
-const HOUSES_KEY = 'privadas_houses';
-const USERS_KEY = 'privadas_users';
 const RSVPS_KEY = 'privadas_rsvps';
 
 function getStoredData<T>(key: string, defaultData: T[]): T[] {
@@ -99,74 +98,77 @@ export function useEvents() {
   return { events, isLoading, addEvent, updateEvent, deleteEvent };
 }
 
-// Houses Hook
+// Houses Hook (API-based)
 export function useHouses() {
   const [houses, setHouses] = useState<House[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    setHouses(getStoredData(HOUSES_KEY, mockHouses));
-    setIsLoading(false);
+  const load = useCallback(async () => {
+    try {
+      const data = await housesApi.getAll();
+      setHouses(data);
+    } catch (e) {
+      console.error('Error loading houses:', e);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const addHouse = (house: Omit<House, 'id' | 'createdAt'>) => {
-    const newHouse: House = {
-      ...house,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    const updated = [...houses, newHouse];
-    setHouses(updated);
-    setStoredData(HOUSES_KEY, updated);
-    return newHouse;
+  useEffect(() => { load(); }, [load]);
+
+  const addHouse = async (data: CreateHousePayload): Promise<House> => {
+    const house = await housesApi.create(data);
+    setHouses(prev => [...prev, house]);
+    return house;
   };
 
-  const updateHouse = (id: string, data: Partial<House>) => {
-    const updated = houses.map(h => h.id === id ? { ...h, ...data } : h);
-    setHouses(updated);
-    setStoredData(HOUSES_KEY, updated);
+  const updateHouse = async (id: string, data: UpdateHousePayload): Promise<House> => {
+    const house = await housesApi.update(id, data);
+    setHouses(prev => prev.map(h => h.id === id ? house : h));
+    return house;
   };
 
-  const deleteHouse = (id: string) => {
-    const updated = houses.filter(h => h.id !== id);
-    setHouses(updated);
-    setStoredData(HOUSES_KEY, updated);
+  const deleteHouse = async (id: string): Promise<void> => {
+    await housesApi.remove(id);
+    setHouses(prev => prev.filter(h => h.id !== id));
   };
 
   return { houses, isLoading, addHouse, updateHouse, deleteHouse };
 }
 
-// Users Hook
+// Users Hook (API-based)
 export function useUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    setUsers(getStoredData(USERS_KEY, mockUsers));
-    setIsLoading(false);
+  const load = useCallback(async () => {
+    try {
+      const data = await usersApi.getAll();
+      setUsers(data);
+    } catch (e) {
+      console.error('Error loading users:', e);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const addUser = (user: Omit<User, 'id'>) => {
-    const newUser: User = {
-      ...user,
-      id: Date.now().toString(),
-    };
-    const updated = [...users, newUser];
-    setUsers(updated);
-    setStoredData(USERS_KEY, updated);
-    return newUser;
+  useEffect(() => { load(); }, [load]);
+
+  const addUser = async (data: CreateUserPayload): Promise<User> => {
+    const user = await usersApi.create(data);
+    setUsers(prev => [...prev, user]);
+    return user;
   };
 
-  const updateUser = (id: string, data: Partial<User>) => {
-    const updated = users.map(u => u.id === id ? { ...u, ...data } : u);
-    setUsers(updated);
-    setStoredData(USERS_KEY, updated);
+  const updateUser = async (id: string, data: UpdateUserPayload): Promise<User> => {
+    const user = await usersApi.update(id, data);
+    setUsers(prev => prev.map(u => u.id === id ? user : u));
+    return user;
   };
 
-  const deleteUser = (id: string) => {
-    const updated = users.filter(u => u.id !== id);
-    setUsers(updated);
-    setStoredData(USERS_KEY, updated);
+  const deleteUser = async (id: string): Promise<void> => {
+    await usersApi.remove(id);
+    setUsers(prev => prev.filter(u => u.id !== id));
   };
 
   return { users, isLoading, addUser, updateUser, deleteUser };

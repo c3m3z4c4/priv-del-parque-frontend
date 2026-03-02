@@ -6,9 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, Home, Search, Download } from 'lucide-react';
+import { Plus, Pencil, Trash2, Home, Search, Download, Loader2 } from 'lucide-react';
 import { useHouses } from '@/hooks/useDataStore';
 import { House } from '@/types';
+import { CreateHousePayload, UpdateHousePayload } from '@/lib/api';
 import { HouseFormDialog } from '@/components/admin/HouseFormDialog';
 import { DeleteHouseDialog } from '@/components/admin/DeleteHouseDialog';
 import { TablePagination, paginate } from '@/components/admin/TablePagination';
@@ -30,21 +31,31 @@ export default function AdminHouses() {
   const handleEdit = (house: House) => { setSelectedHouse(house); setFormOpen(true); };
   const handleDeleteClick = (house: House) => { setSelectedHouse(house); setDeleteOpen(true); };
 
-  const handleSubmit = (data: Omit<House, 'id' | 'createdAt'>) => {
-    if (selectedHouse) {
-      updateHouse(selectedHouse.id, data);
-      toast({ title: 'Casa actualizada', description: `Casa ${data.houseNumber} actualizada correctamente.` });
-    } else {
-      addHouse(data);
-      toast({ title: 'Casa creada', description: `Casa ${data.houseNumber} registrada correctamente.` });
+  const handleSubmit = async (data: CreateHousePayload | UpdateHousePayload) => {
+    try {
+      if (selectedHouse) {
+        await updateHouse(selectedHouse.id, data as UpdateHousePayload);
+        toast({ title: 'Casa actualizada', description: `Casa ${data.houseNumber} actualizada correctamente.` });
+      } else {
+        await addHouse(data as CreateHousePayload);
+        toast({ title: 'Casa creada', description: `Casa ${data.houseNumber} registrada correctamente.` });
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Ocurrió un error.', variant: 'destructive' });
+      throw err;
     }
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (selectedHouse) {
-      deleteHouse(selectedHouse.id);
-      toast({ title: 'Casa eliminada', description: `Casa ${selectedHouse.houseNumber} eliminada.`, variant: 'destructive' });
-      setDeleteOpen(false);
+      try {
+        await deleteHouse(selectedHouse.id);
+        toast({ title: 'Casa eliminada', description: `Casa ${selectedHouse.houseNumber} eliminada.`, variant: 'destructive' });
+        setDeleteOpen(false);
+        setSelectedHouse(null);
+      } catch (err: any) {
+        toast({ title: 'Error', description: err.message || 'No se pudo eliminar.', variant: 'destructive' });
+      }
     }
   };
 
@@ -52,7 +63,7 @@ export default function AdminHouses() {
     const q = search.toLowerCase();
     return [...houses]
       .filter(h => {
-        if (q && !h.houseNumber.toLowerCase().includes(q) && !h.responsibleName.toLowerCase().includes(q)) return false;
+        if (q && !h.houseNumber.toLowerCase().includes(q) && !(h.address ?? '').toLowerCase().includes(q)) return false;
         if (statusFilter !== 'all' && h.status !== statusFilter) return false;
         return true;
       })
@@ -60,6 +71,16 @@ export default function AdminHouses() {
   }, [houses, search, statusFilter]);
 
   const activeCount = houses.filter(h => h.status === 'active').length;
+
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -71,7 +92,7 @@ export default function AdminHouses() {
           </div>
           <div className="flex gap-2">
             <Button variant="outline" className="gap-2" onClick={() => exportToCSV(filtered, [
-              { key: 'houseNumber', header: 'Número' }, { key: 'responsibleName', header: 'Responsable' },
+              { key: 'houseNumber', header: 'Número' }, { key: 'address', header: 'Dirección' },
               { key: 'status', header: 'Estado' }, { key: 'createdAt', header: 'Registro' },
             ], 'casas')} disabled={filtered.length === 0}>
               <Download className="h-4 w-4" /> CSV
@@ -84,7 +105,7 @@ export default function AdminHouses() {
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Buscar por número o responsable..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+            <Input placeholder="Buscar por número o dirección..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
           </div>
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
             <SelectTrigger className="w-full sm:w-[160px]">
@@ -105,10 +126,14 @@ export default function AdminHouses() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <p className="py-8 text-center text-muted-foreground">Cargando...</p>
-            ) : houses.length === 0 ? (
-              <p className="py-8 text-center text-muted-foreground">No hay casas registradas.</p>
+            {houses.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Home className="h-12 w-12 text-muted-foreground/40" />
+                <p className="mt-4 text-lg font-medium">No hay casas registradas</p>
+                <Button onClick={handleCreate} className="mt-4 gap-2" variant="outline">
+                  <Plus className="h-4 w-4" /> Crear casa
+                </Button>
+              </div>
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12">
                 <Search className="h-10 w-10 text-muted-foreground/40" />
@@ -120,9 +145,9 @@ export default function AdminHouses() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Número</TableHead>
-                      <TableHead>Responsable</TableHead>
+                      <TableHead className="hidden sm:table-cell">Dirección</TableHead>
                       <TableHead>Estado</TableHead>
-                      <TableHead>Registro</TableHead>
+                      <TableHead className="hidden md:table-cell">Registro</TableHead>
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -130,13 +155,15 @@ export default function AdminHouses() {
                     {paginate(filtered, page, pageSize).map(house => (
                       <TableRow key={house.id}>
                         <TableCell className="font-medium">{house.houseNumber}</TableCell>
-                        <TableCell>{house.responsibleName}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-muted-foreground">{house.address || '—'}</TableCell>
                         <TableCell>
                           <Badge variant={house.status === 'active' ? 'default' : 'secondary'}>
                             {house.status === 'active' ? 'Activa' : 'Inactiva'}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{house.createdAt}</TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground">
+                          {new Date(house.createdAt).toLocaleDateString('es-MX')}
+                        </TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(house)}>
                             <Pencil className="h-4 w-4" />

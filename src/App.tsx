@@ -25,10 +25,10 @@ const queryClient = new QueryClient();
 
 function RootRedirect() {
   const { user, isAuthenticated, isLoading } = useAuth();
-  
+
   if (isLoading) return null;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (user?.role === 'ADMIN') return <Navigate to="/admin" replace />;
+  if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') return <Navigate to="/admin" replace />;
   return <VecinoHome />;
 }
 
@@ -51,11 +51,11 @@ const App = () => (
             <Route path="/perfil" element={<ProtectedRoute allowedRoles={['VECINO']}><VecinoProfile /></ProtectedRoute>} />
             
             {/* Admin Routes */}
-            <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminDashboard /></ProtectedRoute>} />
-            <Route path="/admin/reuniones" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminMeetings /></ProtectedRoute>} />
-            <Route path="/admin/eventos" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminEvents /></ProtectedRoute>} />
-            <Route path="/admin/casas" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminHouses /></ProtectedRoute>} />
-            <Route path="/admin/usuarios" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminUsers /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/reuniones" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}><AdminMeetings /></ProtectedRoute>} />
+            <Route path="/admin/eventos" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}><AdminEvents /></ProtectedRoute>} />
+            <Route path="/admin/casas" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}><AdminHouses /></ProtectedRoute>} />
+            <Route path="/admin/usuarios" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}><AdminUsers /></ProtectedRoute>} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
