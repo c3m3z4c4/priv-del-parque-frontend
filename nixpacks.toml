@@ -1,8 +1,2 @@
-[phases.install]
-cmds = ['npm install']
-
-[phases.build]
-cmds = ['npm run build']
-
 [start]
-cmd = 'node_modules/.bin/serve -s dist -l 3000'
+cmd = 'node_modules/.bin/vite preview --host 0.0.0.0 --port 3000'
