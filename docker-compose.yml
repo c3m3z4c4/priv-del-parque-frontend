@@ -5,5 +5,5 @@ services:
     build:
       context: .
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+        VITE_API_URL: https://privdelparque-backend-oqissi-9aca91-31-97-41-99.traefik.me
     restart: always
