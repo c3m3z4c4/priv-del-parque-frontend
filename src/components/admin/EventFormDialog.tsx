@@ -102,7 +102,7 @@ export function EventFormDialog({ open, onOpenChange, event, onSubmit }: EventFo
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Área Verde</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value || undefined}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecciona un área verde" />
