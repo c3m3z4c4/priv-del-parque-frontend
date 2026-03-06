@@ -5,8 +5,9 @@ import {
   Home, 
   Calendar, 
   CalendarDays,
-  TreePine, 
-  User, 
+  TreePine,
+  DollarSign,
+  User,
   LogOut,
   Menu,
   X
@@ -21,6 +22,7 @@ const vecinoLinks = [
   { to: '/calendario', label: 'Calendario', icon: CalendarDays },
   { to: '/reuniones', label: 'Reuniones', icon: Calendar },
   { to: '/eventos', label: 'Eventos', icon: TreePine },
+  { to: '/cuotas', label: 'Cuotas', icon: DollarSign },
   { to: '/perfil', label: 'Perfil', icon: User },
 ];
 

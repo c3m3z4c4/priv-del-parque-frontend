@@ -27,7 +27,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+    if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' || user.role === 'PRESIDENTE' || user.role === 'SECRETARIO' || user.role === 'TESORERO') {
       return <Navigate to="/admin" replace />;
     }
     return <Navigate to="/" replace />;

@@ -19,6 +19,8 @@ import AdminMeetings from "./pages/admin/Meetings";
 import AdminEvents from "./pages/admin/Events";
 import AdminHouses from "./pages/admin/Houses";
 import AdminUsers from "./pages/admin/Users";
+import AdminDues from "./pages/admin/Dues";
+import VecinoDues from "./pages/vecino/Dues";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,7 +30,7 @@ function RootRedirect() {
 
   if (isLoading) return null;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') return <Navigate to="/admin" replace />;
+  if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'PRESIDENTE' || user?.role === 'SECRETARIO' || user?.role === 'TESORERO') return <Navigate to="/admin" replace />;
   return <VecinoHome />;
 }
 
@@ -49,13 +51,15 @@ const App = () => (
             <Route path="/reuniones" element={<ProtectedRoute allowedRoles={['VECINO']}><VecinoMeetings /></ProtectedRoute>} />
             <Route path="/eventos" element={<ProtectedRoute allowedRoles={['VECINO']}><VecinoEvents /></ProtectedRoute>} />
             <Route path="/perfil" element={<ProtectedRoute allowedRoles={['VECINO']}><VecinoProfile /></ProtectedRoute>} />
-            
+            <Route path="/cuotas" element={<ProtectedRoute allowedRoles={['VECINO']}><VecinoDues /></ProtectedRoute>} />
+
             {/* Admin Routes */}
-            <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}><AdminDashboard /></ProtectedRoute>} />
-            <Route path="/admin/reuniones" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}><AdminMeetings /></ProtectedRoute>} />
-            <Route path="/admin/eventos" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}><AdminEvents /></ProtectedRoute>} />
-            <Route path="/admin/casas" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}><AdminHouses /></ProtectedRoute>} />
-            <Route path="/admin/usuarios" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}><AdminUsers /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/reuniones" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminMeetings /></ProtectedRoute>} />
+            <Route path="/admin/eventos" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminEvents /></ProtectedRoute>} />
+            <Route path="/admin/casas" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminHouses /></ProtectedRoute>} />
+            <Route path="/admin/usuarios" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminUsers /></ProtectedRoute>} />
+            <Route path="/admin/cuotas" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminDues /></ProtectedRoute>} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>

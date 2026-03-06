@@ -1,4 +1,4 @@
-export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'VECINO';
+export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'VECINO' | 'PRESIDENTE' | 'SECRETARIO' | 'TESORERO';
 
 export interface User {
   id: string;
@@ -55,6 +55,38 @@ export interface Rsvp {
   targetId: string;
   status: RsvpStatus;
   createdAt: string;
+}
+
+export interface DuesConfig {
+  id: string;
+  amount: number;
+  effectiveFrom: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DuesPayment {
+  id: string;
+  userId: string;
+  houseId?: string;
+  month: number;
+  year: number;
+  amount: number;
+  status: 'paid' | 'pending' | 'exempt';
+  paidAt?: string;
+  notes?: string;
+  createdAt: string;
+  user?: User;
+  house?: House;
+}
+
+export interface DuesSummary {
+  total: number;
+  paid: number;
+  pending: number;
+  exempt: number;
+  totalAmount: number;
+  collectedAmount: number;
 }
 
 export interface AuthState {

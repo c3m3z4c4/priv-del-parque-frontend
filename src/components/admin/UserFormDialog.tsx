@@ -23,7 +23,7 @@ const createSchema = z.object({
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
   phone: z.string().trim().optional(),
   address: z.string().trim().optional(),
-  role: z.enum(['ADMIN', 'VECINO', 'SUPER_ADMIN'], { required_error: 'Selecciona un rol' }),
+  role: z.enum(['ADMIN', 'VECINO', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO'], { required_error: 'Selecciona un rol' }),
   houseId: z.string().optional(),
 });
 
@@ -69,7 +69,7 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, houses }: U
           password: '',
           phone: user.phone ?? '',
           address: user.address ?? '',
-          role: user.role as 'ADMIN' | 'VECINO' | 'SUPER_ADMIN',
+          role: user.role as 'ADMIN' | 'VECINO' | 'SUPER_ADMIN' | 'PRESIDENTE' | 'SECRETARIO' | 'TESORERO',
           houseId: user.houseId ?? '',
         });
       } else {
@@ -219,6 +219,9 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, houses }: U
                         <SelectItem value="VECINO">Vecino</SelectItem>
                         <SelectItem value="ADMIN">Administrador</SelectItem>
                         <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
+                        <SelectItem value="PRESIDENTE">Presidente</SelectItem>
+                        <SelectItem value="SECRETARIO">Secretario</SelectItem>
+                        <SelectItem value="TESORERO">Tesorero</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

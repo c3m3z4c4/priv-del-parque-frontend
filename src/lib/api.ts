@@ -110,3 +110,19 @@ export const housesApi = {
   remove: (id: string) =>
     request<void>(`/houses/${id}`, { method: 'DELETE' }),
 };
+
+// ─── Dues ────────────────────────────────────────────────────────────────────
+export const duesApi = {
+  getConfig: () => request<import('@/types').DuesConfig>('/dues/config'),
+  setConfig: (data: { amount: number }) =>
+    request<import('@/types').DuesConfig>('/dues/config', { method: 'POST', body: JSON.stringify(data) }),
+  getAll: () => request<import('@/types').DuesPayment[]>('/dues'),
+  generate: (data: { month: number; year: number }) =>
+    request<import('@/types').DuesPayment[]>('/dues/generate', { method: 'POST', body: JSON.stringify(data) }),
+  create: (data: { userId: string; month: number; year: number; status?: string; notes?: string; paidAt?: string }) =>
+    request<import('@/types').DuesPayment>('/dues', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: { status?: string; notes?: string; paidAt?: string }) =>
+    request<import('@/types').DuesPayment>(`/dues/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  getSummary: (month: number, year: number) =>
+    request<import('@/types').DuesSummary>(`/dues/summary?month=${month}&year=${year}`),
+};

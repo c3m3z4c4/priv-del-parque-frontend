@@ -7,6 +7,7 @@ import {
   TreePine, 
   Home as HomeIcon,
   Users,
+  DollarSign,
   LogOut,
   Menu,
   X,
@@ -27,6 +28,7 @@ const adminLinks = [
   { to: '/admin/eventos', label: 'Eventos', icon: TreePine },
   { to: '/admin/casas', label: 'Casas', icon: HomeIcon },
   { to: '/admin/usuarios', label: 'Usuarios', icon: Users },
+  { to: '/admin/cuotas', label: 'Cuotas', icon: DollarSign },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
