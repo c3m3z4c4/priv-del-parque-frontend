@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRsvps } from '@/hooks/useDataStore';
 import { RsvpStatus } from '@/types';
@@ -22,24 +23,32 @@ export function RsvpButtons({ targetType, targetId, compact = false }: RsvpButto
   const { user } = useAuth();
   const { setRsvp, removeRsvp, getUserRsvp, getAttendingCount } = useRsvps();
   const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
 
   if (!user) return null;
 
   const currentRsvp = getUserRsvp(user.id, targetType, targetId);
   const attendingCount = getAttendingCount(targetType, targetId);
 
-  const handleRsvp = (status: RsvpStatus) => {
-    if (currentRsvp?.status === status) {
-      removeRsvp(user.id, targetType, targetId);
-      toast({ title: 'Respuesta eliminada', description: 'Se eliminó tu confirmación.' });
-    } else {
-      setRsvp(user.id, user.name, targetType, targetId, status);
-      const labels: Record<RsvpStatus, string> = {
-        attending: 'Confirmaste tu asistencia',
-        maybe: 'Respondiste "Tal vez"',
-        not_attending: 'Indicaste que no asistirás',
-      };
-      toast({ title: labels[status] });
+  const handleRsvp = async (status: RsvpStatus) => {
+    setLoading(true);
+    try {
+      if (currentRsvp?.status === status) {
+        await removeRsvp(user.id, targetType, targetId);
+        toast({ title: 'Respuesta eliminada', description: 'Se eliminó tu confirmación.' });
+      } else {
+        await setRsvp(user.id, user.name, targetType, targetId, status);
+        const labels: Record<RsvpStatus, string> = {
+          attending: 'Confirmaste tu asistencia',
+          maybe: 'Respondiste "Tal vez"',
+          not_attending: 'Indicaste que no asistirás',
+        };
+        toast({ title: labels[status] });
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -54,6 +63,7 @@ export function RsvpButtons({ targetType, targetId, compact = false }: RsvpButto
               key={status}
               variant="outline"
               size="sm"
+              disabled={loading}
               className={cn(
                 "gap-1 text-xs h-7",
                 isActive && config.activeClass,

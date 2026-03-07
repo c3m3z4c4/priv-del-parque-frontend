@@ -1,29 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Meeting, GreenAreaEvent, House, User, Rsvp, RsvpStatus } from '@/types';
 import {
-  usersApi, housesApi, meetingsApi, eventsApi,
+  usersApi, housesApi, meetingsApi, eventsApi, rsvpsApi,
   CreateUserPayload, UpdateUserPayload, CreateHousePayload, UpdateHousePayload,
   CreateMeetingPayload, CreateEventPayload,
 } from '@/lib/api';
-
-const RSVPS_KEY = 'privadas_rsvps';
-
-function getStoredData<T>(key: string, defaultData: T[]): T[] {
-  const stored = localStorage.getItem(key);
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return defaultData;
-    }
-  }
-  localStorage.setItem(key, JSON.stringify(defaultData));
-  return defaultData;
-}
-
-function setStoredData<T>(key: string, data: T[]) {
-  localStorage.setItem(key, JSON.stringify(data));
-}
 
 // Meetings Hook (API-based)
 export function useMeetings() {
@@ -177,49 +158,39 @@ export function useUsers() {
   return { users, isLoading, addUser, updateUser, deleteUser };
 }
 
-// RSVP Hook
+// RSVP Hook (API-based)
 export function useRsvps() {
   const [rsvps, setRsvps] = useState<Rsvp[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    setRsvps(getStoredData<Rsvp>(RSVPS_KEY, []));
-    setIsLoading(false);
+  const load = useCallback(async () => {
+    try {
+      const data = await rsvpsApi.getAll();
+      setRsvps(data);
+    } catch (e) {
+      console.error('Error loading rsvps:', e);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const setRsvp = useCallback((userId: string, userName: string, targetType: 'meeting' | 'event', targetId: string, status: RsvpStatus) => {
+  useEffect(() => { load(); }, [load]);
+
+  const setRsvp = useCallback(async (_userId: string, _userName: string, targetType: 'meeting' | 'event', targetId: string, status: RsvpStatus) => {
+    const rsvp = await rsvpsApi.upsert(targetType, targetId, status);
     setRsvps(prev => {
-      const existing = prev.findIndex(r => r.userId === userId && r.targetType === targetType && r.targetId === targetId);
-      let updated: Rsvp[];
-      if (existing >= 0) {
-        updated = prev.map((r, i) => i === existing ? { ...r, status } : r);
-      } else {
-        const newRsvp: Rsvp = {
-          id: Date.now().toString(),
-          userId,
-          userName,
-          targetType,
-          targetId,
-          status,
-          createdAt: new Date().toISOString(),
-        };
-        updated = [...prev, newRsvp];
-      }
-      setStoredData(RSVPS_KEY, updated);
-      return updated;
+      const idx = prev.findIndex(r => r.targetType === targetType && r.targetId === targetId);
+      return idx >= 0 ? prev.map((r, i) => i === idx ? rsvp : r) : [...prev, rsvp];
     });
   }, []);
 
-  const removeRsvp = useCallback((userId: string, targetType: 'meeting' | 'event', targetId: string) => {
-    setRsvps(prev => {
-      const updated = prev.filter(r => !(r.userId === userId && r.targetType === targetType && r.targetId === targetId));
-      setStoredData(RSVPS_KEY, updated);
-      return updated;
-    });
+  const removeRsvp = useCallback(async (_userId: string, targetType: 'meeting' | 'event', targetId: string) => {
+    await rsvpsApi.remove(targetType, targetId);
+    setRsvps(prev => prev.filter(r => !(r.targetType === targetType && r.targetId === targetId)));
   }, []);
 
-  const getUserRsvp = useCallback((userId: string, targetType: 'meeting' | 'event', targetId: string): Rsvp | undefined => {
-    return rsvps.find(r => r.userId === userId && r.targetType === targetType && r.targetId === targetId);
+  const getUserRsvp = useCallback((_userId: string, targetType: 'meeting' | 'event', targetId: string): Rsvp | undefined => {
+    return rsvps.find(r => r.targetType === targetType && r.targetId === targetId);
   }, [rsvps]);
 
   const getRsvpsForTarget = useCallback((targetType: 'meeting' | 'event', targetId: string): Rsvp[] => {

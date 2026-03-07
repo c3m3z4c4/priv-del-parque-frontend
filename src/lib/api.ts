@@ -189,6 +189,18 @@ export const promotionsApi = {
   remove: (id: string) => request<void>(`/dues/promotions/${id}`, { method: 'DELETE' }),
 };
 
+// ─── RSVPs ───────────────────────────────────────────────────────────────────
+export const rsvpsApi = {
+  getAll: () => request<import('@/types').Rsvp[]>('/rsvps'),
+  upsert: (targetType: 'meeting' | 'event', targetId: string, status: import('@/types').RsvpStatus) =>
+    request<import('@/types').Rsvp>('/rsvps', {
+      method: 'POST',
+      body: JSON.stringify({ targetType, targetId, status }),
+    }),
+  remove: (targetType: 'meeting' | 'event', targetId: string) =>
+    request<void>(`/rsvps/${targetType}/${targetId}`, { method: 'DELETE' }),
+};
+
 // ─── Dues ────────────────────────────────────────────────────────────────────
 export const duesApi = {
   getConfig: () => request<import('@/types').DuesConfig>('/dues/config'),

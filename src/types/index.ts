@@ -64,11 +64,11 @@ export type RsvpStatus = 'attending' | 'not_attending' | 'maybe';
 export interface Rsvp {
   id: string;
   userId: string;
-  userName: string;
   targetType: 'meeting' | 'event';
   targetId: string;
   status: RsvpStatus;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface DuesConfig {
