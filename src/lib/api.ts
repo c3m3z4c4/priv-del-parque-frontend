@@ -40,7 +40,9 @@ async function request<T>(
   }
 
   if (res.status === 204) return undefined as T;
-  return res.json();
+  const text = await res.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text) as T;
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -111,6 +113,38 @@ export const housesApi = {
     request<void>(`/houses/${id}`, { method: 'DELETE' }),
 };
 
+// ─── Meetings ─────────────────────────────────────────────────────────────────
+export type CreateMeetingPayload = {
+  title: string; description?: string; location: string;
+  date: string; startTime: string; endTime?: string;
+};
+export const meetingsApi = {
+  getAll: () => request<import('@/types').Meeting[]>('/meetings'),
+  create: (data: CreateMeetingPayload) => request<import('@/types').Meeting>('/meetings', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<CreateMeetingPayload>) => request<import('@/types').Meeting>(`/meetings/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  remove: (id: string) => request<void>(`/meetings/${id}`, { method: 'DELETE' }),
+};
+
+// ─── Events ──────────────────────────────────────────────────────────────────
+export type CreateEventPayload = {
+  title: string; description?: string; greenArea: string;
+  date: string; startTime: string; endTime?: string;
+};
+export const eventsApi = {
+  getAll: () => request<import('@/types').GreenAreaEvent[]>('/events'),
+  create: (data: CreateEventPayload) => request<import('@/types').GreenAreaEvent>('/events', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<CreateEventPayload>) => request<import('@/types').GreenAreaEvent>(`/events/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  remove: (id: string) => request<void>(`/events/${id}`, { method: 'DELETE' }),
+};
+
+// ─── Notifications ─────────────────────────────────────────────────────────
+export const notificationsApi = {
+  getAll: () => request<import('@/types').Notification[]>('/notifications'),
+  getUnreadCount: () => request<{ count: number }>('/notifications/unread-count'),
+  markAsRead: (id: string) => request<void>(`/notifications/${id}/read`, { method: 'PATCH' }),
+  markAllAsRead: () => request<void>('/notifications/read-all', { method: 'PATCH' }),
+};
+
 // ─── Dues ────────────────────────────────────────────────────────────────────
 export const duesApi = {
   getConfig: () => request<import('@/types').DuesConfig>('/dues/config'),
@@ -118,7 +152,7 @@ export const duesApi = {
     request<import('@/types').DuesConfig>('/dues/config', { method: 'POST', body: JSON.stringify(data) }),
   getAll: () => request<import('@/types').DuesPayment[]>('/dues'),
   generate: (data: { month: number; year: number }) =>
-    request<import('@/types').DuesPayment[]>('/dues/generate', { method: 'POST', body: JSON.stringify(data) }),
+    request<{ generated: number; exempt: number }>('/dues/generate', { method: 'POST', body: JSON.stringify(data) }),
   create: (data: { userId: string; month: number; year: number; status?: string; notes?: string; paidAt?: string }) =>
     request<import('@/types').DuesPayment>('/dues', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: { status?: string; notes?: string; paidAt?: string }) =>

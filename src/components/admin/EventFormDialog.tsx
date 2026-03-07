@@ -27,7 +27,8 @@ const eventSchema = z.object({
   title: z.string().trim().min(1, 'El título es obligatorio').max(200),
   greenArea: z.string().min(1, 'Selecciona un área verde'),
   date: z.date({ required_error: 'La fecha es obligatoria' }),
-  time: z.string().min(1, 'La hora es obligatoria'),
+  startTime: z.string().min(1, 'La hora es obligatoria'),
+  endTime: z.string().optional(),
   description: z.string().trim().max(1000).optional(),
 });
 
@@ -37,10 +38,11 @@ interface EventFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   event?: GreenAreaEvent | null;
-  onSubmit: (data: Omit<GreenAreaEvent, 'id' | 'createdAt'>) => void;
+  onSubmit: (data: { title: string; greenArea: string; date: string; startTime: string; endTime?: string; description?: string }) => void;
+  defaultDate?: Date;
 }
 
-export function EventFormDialog({ open, onOpenChange, event, onSubmit }: EventFormDialogProps) {
+export function EventFormDialog({ open, onOpenChange, event, onSubmit, defaultDate }: EventFormDialogProps) {
   const isEditing = !!event;
 
   const form = useForm<EventFormValues>({
@@ -50,10 +52,11 @@ export function EventFormDialog({ open, onOpenChange, event, onSubmit }: EventFo
           title: event.title,
           greenArea: event.greenArea,
           date: new Date(event.date + 'T12:00:00'),
-          time: event.time,
+          startTime: event.startTime,
+          endTime: event.endTime || '',
           description: event.description || '',
         }
-      : { title: '', greenArea: '', time: '', description: '' },
+      : { title: '', greenArea: '', startTime: '', endTime: '', description: '', ...(defaultDate ? { date: defaultDate } : {}) },
   });
 
   const handleSubmit = (values: EventFormValues) => {
@@ -61,9 +64,9 @@ export function EventFormDialog({ open, onOpenChange, event, onSubmit }: EventFo
       title: values.title,
       greenArea: values.greenArea,
       date: format(values.date, 'yyyy-MM-dd'),
-      time: values.time,
+      startTime: values.startTime,
+      endTime: values.endTime || undefined,
       description: values.description || '',
-      createdBy: '1',
     });
     form.reset();
     onOpenChange(false);
@@ -160,10 +163,10 @@ export function EventFormDialog({ open, onOpenChange, event, onSubmit }: EventFo
 
               <FormField
                 control={form.control}
-                name="time"
+                name="startTime"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Hora</FormLabel>
+                    <FormLabel>Hora inicio</FormLabel>
                     <FormControl>
                       <Input type="time" {...field} />
                     </FormControl>
@@ -172,6 +175,20 @@ export function EventFormDialog({ open, onOpenChange, event, onSubmit }: EventFo
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="endTime"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Hora fin (opcional)</FormLabel>
+                  <FormControl>
+                    <Input type="time" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}

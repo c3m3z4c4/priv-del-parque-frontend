@@ -27,11 +27,12 @@ export interface Meeting {
   id: string;
   title: string;
   date: string;
-  time: string;
+  startTime: string;
+  endTime?: string;
   location: string;
   description: string;
   createdAt: string;
-  createdBy: string;
+  createdById?: string;
 }
 
 export interface GreenAreaEvent {
@@ -39,10 +40,23 @@ export interface GreenAreaEvent {
   title: string;
   greenArea: string;
   date: string;
-  time: string;
+  startTime: string;
+  endTime?: string;
   description: string;
   createdAt: string;
-  createdBy: string;
+  createdById?: string;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: 'new_event' | 'new_meeting';
+  title: string;
+  message: string;
+  targetId: string;
+  targetType: 'event' | 'meeting';
+  read: boolean;
+  createdAt: string;
 }
 
 export type RsvpStatus = 'attending' | 'not_attending' | 'maybe';

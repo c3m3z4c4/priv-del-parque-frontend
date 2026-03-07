@@ -20,6 +20,7 @@ import AdminEvents from "./pages/admin/Events";
 import AdminHouses from "./pages/admin/Houses";
 import AdminUsers from "./pages/admin/Users";
 import AdminDues from "./pages/admin/Dues";
+import AdminCalendar from "./pages/admin/Calendar";
 import VecinoDues from "./pages/vecino/Dues";
 import NotFound from "./pages/NotFound";
 
@@ -60,6 +61,7 @@ const App = () => (
             <Route path="/admin/casas" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminHouses /></ProtectedRoute>} />
             <Route path="/admin/usuarios" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminUsers /></ProtectedRoute>} />
             <Route path="/admin/cuotas" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminDues /></ProtectedRoute>} />
+            <Route path="/admin/calendario" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminCalendar /></ProtectedRoute>} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>

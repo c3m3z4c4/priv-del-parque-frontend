@@ -1,10 +1,11 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { 
-  LayoutDashboard, 
-  Calendar, 
-  TreePine, 
+import {
+  LayoutDashboard,
+  Calendar,
+  CalendarDays,
+  TreePine,
   Home as HomeIcon,
   Users,
   DollarSign,
@@ -24,6 +25,7 @@ import { NotificationBell } from '@/components/NotificationBell';
 
 const adminLinks = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/admin/calendario', label: 'Calendario', icon: CalendarDays },
   { to: '/admin/reuniones', label: 'Reuniones', icon: Calendar },
   { to: '/admin/eventos', label: 'Eventos', icon: TreePine },
   { to: '/admin/casas', label: 'Casas', icon: HomeIcon },

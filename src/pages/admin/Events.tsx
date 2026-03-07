@@ -38,22 +38,30 @@ export default function AdminEvents() {
   const handleEdit = (ev: GreenAreaEvent) => { setSelectedEvent(ev); setFormOpen(true); };
   const handleDelete = (ev: GreenAreaEvent) => { setSelectedEvent(ev); setDeleteOpen(true); };
 
-  const handleFormSubmit = (data: Omit<GreenAreaEvent, 'id' | 'createdAt'>) => {
-    if (selectedEvent) {
-      updateEvent(selectedEvent.id, data);
-      toast({ title: 'Evento actualizado', description: `"${data.title}" se actualizó correctamente.` });
-    } else {
-      addEvent(data);
-      toast({ title: 'Evento creado', description: `"${data.title}" se creó correctamente.` });
+  const handleFormSubmit = async (data: { title: string; greenArea: string; date: string; startTime: string; endTime?: string; description?: string }) => {
+    try {
+      if (selectedEvent) {
+        await updateEvent(selectedEvent.id, data);
+        toast({ title: 'Evento actualizado', description: `"${data.title}" se actualizó correctamente.` });
+      } else {
+        await addEvent(data);
+        toast({ title: 'Evento creado', description: `"${data.title}" se creó correctamente.` });
+      }
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message || 'No se pudo guardar el evento.', variant: 'destructive' });
     }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (selectedEvent) {
-      deleteEvent(selectedEvent.id);
-      toast({ title: 'Evento eliminado', description: `"${selectedEvent.title}" fue eliminado.`, variant: 'destructive' });
-      setDeleteOpen(false);
-      setSelectedEvent(null);
+      try {
+        await deleteEvent(selectedEvent.id);
+        toast({ title: 'Evento eliminado', description: `"${selectedEvent.title}" fue eliminado.`, variant: 'destructive' });
+        setDeleteOpen(false);
+        setSelectedEvent(null);
+      } catch (e: any) {
+        toast({ title: 'Error', description: e.message || 'No se pudo eliminar el evento.', variant: 'destructive' });
+      }
     }
   };
 
@@ -93,7 +101,7 @@ export default function AdminEvents() {
           <div className="flex gap-2">
             <Button variant="outline" className="gap-2" onClick={() => exportToCSV(filtered, [
               { key: 'title', header: 'Título' }, { key: 'greenArea', header: 'Área Verde' },
-              { key: 'date', header: 'Fecha' }, { key: 'time', header: 'Hora' },
+              { key: 'date', header: 'Fecha' }, { key: 'startTime', header: 'Hora' },
               { key: 'description', header: 'Descripción' },
             ], 'eventos')} disabled={filtered.length === 0}>
               <Download className="h-4 w-4" /> CSV
@@ -182,7 +190,7 @@ export default function AdminEvents() {
                             </TableCell>
                             <TableCell className="whitespace-nowrap">
                               <span className="flex items-center gap-1.5">
-                                <Clock className="h-3.5 w-3.5 text-muted-foreground" />{ev.time}
+                                <Clock className="h-3.5 w-3.5 text-muted-foreground" />{ev.startTime}
                               </span>
                             </TableCell>
                             <TableCell>

@@ -36,22 +36,30 @@ export default function AdminMeetings() {
   const handleEdit = (meeting: Meeting) => { setSelectedMeeting(meeting); setFormOpen(true); };
   const handleDelete = (meeting: Meeting) => { setSelectedMeeting(meeting); setDeleteOpen(true); };
 
-  const handleFormSubmit = (data: Omit<Meeting, 'id' | 'createdAt'>) => {
-    if (selectedMeeting) {
-      updateMeeting(selectedMeeting.id, data);
-      toast({ title: 'Reunión actualizada', description: `"${data.title}" se actualizó correctamente.` });
-    } else {
-      addMeeting(data);
-      toast({ title: 'Reunión creada', description: `"${data.title}" se creó correctamente.` });
+  const handleFormSubmit = async (data: { title: string; location: string; date: string; startTime: string; endTime?: string; description?: string }) => {
+    try {
+      if (selectedMeeting) {
+        await updateMeeting(selectedMeeting.id, data);
+        toast({ title: 'Reunión actualizada', description: `"${data.title}" se actualizó correctamente.` });
+      } else {
+        await addMeeting(data);
+        toast({ title: 'Reunión creada', description: `"${data.title}" se creó correctamente.` });
+      }
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message || 'No se pudo guardar la reunión.', variant: 'destructive' });
     }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (selectedMeeting) {
-      deleteMeeting(selectedMeeting.id);
-      toast({ title: 'Reunión eliminada', description: `"${selectedMeeting.title}" fue eliminada.`, variant: 'destructive' });
-      setDeleteOpen(false);
-      setSelectedMeeting(null);
+      try {
+        await deleteMeeting(selectedMeeting.id);
+        toast({ title: 'Reunión eliminada', description: `"${selectedMeeting.title}" fue eliminada.`, variant: 'destructive' });
+        setDeleteOpen(false);
+        setSelectedMeeting(null);
+      } catch (e: any) {
+        toast({ title: 'Error', description: e.message || 'No se pudo eliminar la reunión.', variant: 'destructive' });
+      }
     }
   };
 
@@ -90,7 +98,7 @@ export default function AdminMeetings() {
           <div className="flex gap-2">
             <Button variant="outline" className="gap-2" onClick={() => exportToCSV(filtered, [
               { key: 'title', header: 'Título' }, { key: 'date', header: 'Fecha' },
-              { key: 'time', header: 'Hora' }, { key: 'location', header: 'Ubicación' },
+              { key: 'startTime', header: 'Hora' }, { key: 'location', header: 'Ubicación' },
               { key: 'description', header: 'Descripción' },
             ], 'reuniones')} disabled={filtered.length === 0}>
               <Download className="h-4 w-4" /> CSV
@@ -166,7 +174,7 @@ export default function AdminMeetings() {
                             <TableCell className="whitespace-nowrap">
                               <span className="flex items-center gap-1.5">
                                 <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                                {meeting.time}
+                                {meeting.startTime}
                               </span>
                             </TableCell>
                             <TableCell className="hidden md:table-cell">

@@ -1,19 +1,23 @@
 import { useState, useMemo } from 'react';
-import { VecinoLayout } from '@/components/layouts/VecinoLayout';
+import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { useMeetings, useEvents } from '@/hooks/useDataStore';
+import { EventFormDialog } from '@/components/admin/EventFormDialog';
+import { MeetingFormDialog } from '@/components/admin/MeetingFormDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarIcon, TreePine, Clock, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Calendar as CalendarIcon, TreePine, Clock, MapPin, ChevronLeft, ChevronRight, Plus,
+} from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay,
-  addMonths, subMonths, startOfWeek, endOfWeek, parseISO, isToday,
+  addMonths, subMonths, startOfWeek, endOfWeek, isToday,
   addWeeks, subWeeks, addYears, subYears, startOfYear, eachMonthOfInterval,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Meeting, GreenAreaEvent } from '@/types';
-import { RsvpButtons } from '@/components/RsvpButtons';
+import { useToast } from '@/hooks/use-toast';
 
 type CalendarItem =
   | { type: 'meeting'; data: Meeting }
@@ -21,16 +25,18 @@ type CalendarItem =
 
 type ViewMode = 'monthly' | 'weekly' | 'annual';
 
-export default function VecinoCalendar() {
-  const { meetings } = useMeetings();
-  const { events } = useEvents();
+export default function AdminCalendar() {
+  const { meetings, addMeeting } = useMeetings();
+  const { events, addEvent } = useEvents();
+  const { toast } = useToast();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [currentYear, setCurrentYear] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('monthly');
+  const [eventFormOpen, setEventFormOpen] = useState(false);
+  const [meetingFormOpen, setMeetingFormOpen] = useState(false);
 
-  // Build a map of date -> items
   const itemsByDate = useMemo(() => {
     const map = new Map<string, CalendarItem[]>();
     meetings.forEach(m => {
@@ -46,7 +52,6 @@ export default function VecinoCalendar() {
     return map;
   }, [meetings, events]);
 
-  // Monthly calendar grid days
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
@@ -55,13 +60,11 @@ export default function VecinoCalendar() {
     return eachDayOfInterval({ start: calStart, end: calEnd });
   }, [currentMonth]);
 
-  // Weekly days
   const weekDays = useMemo(() => {
     const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
     return eachDayOfInterval({ start: currentWeekStart, end: weekEnd });
   }, [currentWeekStart]);
 
-  // Annual months
   const yearMonths = useMemo(() => {
     const yearStart = startOfYear(currentYear);
     return eachMonthOfInterval({ start: yearStart, end: new Date(currentYear.getFullYear(), 11, 1) });
@@ -75,6 +78,24 @@ export default function VecinoCalendar() {
 
   const weekDayLabels = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
 
+  const handleCreateEvent = async (data: { title: string; greenArea: string; date: string; startTime: string; endTime?: string; description?: string }) => {
+    try {
+      await addEvent(data);
+      toast({ title: 'Evento creado', description: `"${data.title}" se creo correctamente.` });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message || 'No se pudo crear el evento.', variant: 'destructive' });
+    }
+  };
+
+  const handleCreateMeeting = async (data: { title: string; location: string; date: string; startTime: string; endTime?: string; description?: string }) => {
+    try {
+      await addMeeting(data);
+      toast({ title: 'Reunion creada', description: `"${data.title}" se creo correctamente.` });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message || 'No se pudo crear la reunion.', variant: 'destructive' });
+    }
+  };
+
   const renderDayDetail = () => (
     <Card className="shadow-card">
       <CardHeader className="pb-3">
@@ -85,6 +106,16 @@ export default function VecinoCalendar() {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {selectedDate && (
+          <div className="flex gap-2 mb-4">
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setEventFormOpen(true)}>
+              <Plus className="h-3.5 w-3.5" /> Evento
+            </Button>
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setMeetingFormOpen(true)}>
+              <Plus className="h-3.5 w-3.5" /> Reunion
+            </Button>
+          </div>
+        )}
         {selectedItems.length === 0 ? (
           <div className="flex flex-col items-center py-6 text-muted-foreground">
             <CalendarIcon className="mb-2 h-8 w-8 opacity-40" />
@@ -128,9 +159,6 @@ export default function VecinoCalendar() {
                 <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
                   {item.data.description}
                 </p>
-                <div className="mt-3 border-t pt-2">
-                  <RsvpButtons targetType={item.type} targetId={item.data.id} compact />
-                </div>
               </div>
             ))}
           </div>
@@ -157,9 +185,7 @@ export default function VecinoCalendar() {
       <CardContent>
         <div className="grid grid-cols-7 mb-1">
           {weekDayLabels.map(day => (
-            <div key={day} className="py-2 text-center text-xs font-medium text-muted-foreground">
-              {day}
-            </div>
+            <div key={day} className="py-2 text-center text-xs font-medium text-muted-foreground">{day}</div>
           ))}
         </div>
         <div className="grid grid-cols-7">
@@ -279,9 +305,7 @@ export default function VecinoCalendar() {
           <Button variant="ghost" size="icon" onClick={() => setCurrentYear(prev => subYears(prev, 1))}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <CardTitle className="font-serif text-xl">
-            {format(currentYear, 'yyyy')}
-          </CardTitle>
+          <CardTitle className="font-serif text-xl">{format(currentYear, 'yyyy')}</CardTitle>
           <Button variant="ghost" size="icon" onClick={() => setCurrentYear(prev => addYears(prev, 1))}>
             <ChevronRight className="h-5 w-5" />
           </Button>
@@ -344,7 +368,7 @@ export default function VecinoCalendar() {
   );
 
   return (
-    <VecinoLayout>
+    <AdminLayout>
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -375,6 +399,21 @@ export default function VecinoCalendar() {
           </div>
         </div>
       </div>
-    </VecinoLayout>
+
+      <EventFormDialog
+        key={`event-${selectedDate?.toISOString() ?? 'new'}`}
+        open={eventFormOpen}
+        onOpenChange={setEventFormOpen}
+        onSubmit={handleCreateEvent}
+        defaultDate={selectedDate || undefined}
+      />
+      <MeetingFormDialog
+        key={`meeting-${selectedDate?.toISOString() ?? 'new'}`}
+        open={meetingFormOpen}
+        onOpenChange={setMeetingFormOpen}
+        onSubmit={handleCreateMeeting}
+        defaultDate={selectedDate || undefined}
+      />
+    </AdminLayout>
   );
 }

@@ -64,9 +64,9 @@ export function NotificationBell() {
                 >
                   <div className={cn(
                     "mt-0.5 rounded-full p-1.5",
-                    n.type === 'meeting' ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"
+                    n.type === 'new_meeting' ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"
                   )}>
-                    {n.type === 'meeting' ? <Calendar className="h-4 w-4" /> : <TreePine className="h-4 w-4" />}
+                    {n.type === 'new_meeting' ? <Calendar className="h-4 w-4" /> : <TreePine className="h-4 w-4" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={cn("text-sm truncate", !n.read && "font-medium")}>{n.title}</p>
