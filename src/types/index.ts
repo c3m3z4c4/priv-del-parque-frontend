@@ -103,6 +103,31 @@ export interface DuesSummary {
   collectedAmount: number;
 }
 
+export type ProjectStatus = 'planned' | 'started' | 'in_review' | 'completed' | 'paused';
+
+export interface Project {
+  id: string;
+  name: string;
+  description: string;
+  completionPercentage: number;
+  status: ProjectStatus;
+  visibleToVecinos: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DuesPromotion {
+  id: string;
+  name: string;
+  description?: string;
+  monthCount: number;
+  discountPercentage: number;
+  validFrom: string;
+  validTo: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export interface AuthState {
   user: User | null;
   token: string | null;

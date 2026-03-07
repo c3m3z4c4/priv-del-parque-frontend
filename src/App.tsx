@@ -21,7 +21,9 @@ import AdminHouses from "./pages/admin/Houses";
 import AdminUsers from "./pages/admin/Users";
 import AdminDues from "./pages/admin/Dues";
 import AdminCalendar from "./pages/admin/Calendar";
+import AdminProjects from "./pages/admin/Projects";
 import VecinoDues from "./pages/vecino/Dues";
+import VecinoProjects from "./pages/vecino/Projects";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -53,6 +55,7 @@ const App = () => (
             <Route path="/eventos" element={<ProtectedRoute allowedRoles={['VECINO']}><VecinoEvents /></ProtectedRoute>} />
             <Route path="/perfil" element={<ProtectedRoute allowedRoles={['VECINO']}><VecinoProfile /></ProtectedRoute>} />
             <Route path="/cuotas" element={<ProtectedRoute allowedRoles={['VECINO']}><VecinoDues /></ProtectedRoute>} />
+            <Route path="/proyectos" element={<ProtectedRoute allowedRoles={['VECINO']}><VecinoProjects /></ProtectedRoute>} />
 
             {/* Admin Routes */}
             <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminDashboard /></ProtectedRoute>} />
@@ -62,6 +65,7 @@ const App = () => (
             <Route path="/admin/usuarios" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminUsers /></ProtectedRoute>} />
             <Route path="/admin/cuotas" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminDues /></ProtectedRoute>} />
             <Route path="/admin/calendario" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminCalendar /></ProtectedRoute>} />
+            <Route path="/admin/proyectos" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminProjects /></ProtectedRoute>} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { VecinoLayout } from '@/components/layouts/VecinoLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import { DuesPayment } from '@/types';
-import { duesApi } from '@/lib/api';
+import { DuesPayment, DuesPromotion } from '@/types';
+import { duesApi, promotionsApi } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { DollarSign, CheckCircle2, Clock, Loader2 } from 'lucide-react';
+import { DollarSign, CheckCircle2, Clock, Loader2, Tag } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const MONTHS = [
@@ -28,17 +28,22 @@ export default function VecinoDues() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [payments, setPayments] = useState<DuesPayment[]>([]);
+  const [promotions, setPromotions] = useState<DuesPromotion[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const all = await duesApi.getAll();
+        const [all, promos] = await Promise.all([
+          duesApi.getAll(),
+          promotionsApi.getActive(),
+        ]);
         // Filter to only the current user's payments
         const mine = all.filter(p => p.userId === user?.id);
         // Sort by year desc, month desc
         mine.sort((a, b) => b.year - a.year || b.month - a.month);
         setPayments(mine);
+        setPromotions(promos);
       } catch (err: any) {
         toast({ title: 'Error', description: err.message || 'No se pudieron cargar las cuotas.', variant: 'destructive' });
       } finally {
@@ -142,6 +147,40 @@ export default function VecinoDues() {
             )}
           </CardContent>
         </Card>
+
+        {/* Promotions Section */}
+        <div>
+          <h2 className="font-serif text-2xl font-bold">Promociones Disponibles</h2>
+          <p className="text-muted-foreground">Descuentos vigentes en cuotas</p>
+        </div>
+
+        {promotions.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Tag className="h-10 w-10 text-muted-foreground/40" />
+            <p className="mt-3 text-muted-foreground">No hay promociones disponibles actualmente</p>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {promotions.map(promo => (
+              <Card key={promo.id} className="shadow-card transition-shadow hover:shadow-lg">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">{promo.name}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {promo.description && (
+                    <p className="text-sm text-muted-foreground">{promo.description}</p>
+                  )}
+                  <Badge className="bg-primary/10 text-primary">
+                    {promo.monthCount} {promo.monthCount === 1 ? 'mes' : 'meses'} &bull; {promo.discountPercentage}% de descuento
+                  </Badge>
+                  <p className="text-xs text-muted-foreground">
+                    Vigente hasta: {new Date(promo.validTo + (promo.validTo.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('es-MX')}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </VecinoLayout>
   );

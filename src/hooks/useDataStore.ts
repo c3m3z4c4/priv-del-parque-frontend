@@ -136,7 +136,7 @@ export function useHouses() {
     setHouses(prev => prev.filter(h => h.id !== id));
   };
 
-  return { houses, isLoading, addHouse, updateHouse, deleteHouse };
+  return { houses, isLoading, addHouse, updateHouse, deleteHouse, refetch: load };
 }
 
 // Users Hook (API-based)

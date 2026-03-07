@@ -4,23 +4,130 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, Home, Search, Download, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Plus, Pencil, Trash2, Home, Search, Download, Upload, Loader2 } from 'lucide-react';
 import { useHouses } from '@/hooks/useDataStore';
 import { House } from '@/types';
-import { CreateHousePayload, UpdateHousePayload } from '@/lib/api';
+import { CreateHousePayload, UpdateHousePayload, housesApi } from '@/lib/api';
 import { HouseFormDialog } from '@/components/admin/HouseFormDialog';
 import { DeleteHouseDialog } from '@/components/admin/DeleteHouseDialog';
 import { TablePagination, paginate } from '@/components/admin/TablePagination';
 import { exportToCSV } from '@/lib/exportCSV';
 import { useToast } from '@/hooks/use-toast';
 
+// ─── Import dialog ────────────────────────────────────────────────────────────
+const CSV_PLACEHOLDER = `A-01,Calle del Parque 1
+A-02,Calle del Parque 2
+B-01
+B-02,Av. Principal 10`;
+
+function ImportHousesDialog({
+  open, onOpenChange, onImported,
+}: { open: boolean; onOpenChange: (v: boolean) => void; onImported: () => void }) {
+  const { toast } = useToast();
+  const [text, setText] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const preview = useMemo(() => {
+    return text
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean)
+      .map(line => {
+        const [houseNumber, ...rest] = line.split(',');
+        return { houseNumber: houseNumber.trim(), address: rest.join(',').trim() || undefined };
+      })
+      .filter(h => h.houseNumber);
+  }, [text]);
+
+  const handleImport = async () => {
+    if (preview.length === 0) return;
+    setLoading(true);
+    try {
+      const result = await housesApi.import(preview);
+      toast({
+        title: 'Importación completada',
+        description: `${result.created} casas creadas, ${result.skipped} omitidas${result.skippedNumbers.length ? ` (${result.skippedNumbers.join(', ')})` : ''}.`,
+      });
+      setText('');
+      onOpenChange(false);
+      onImported();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="font-serif">Importar casas por lista</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <Label>Lista de casas <span className="text-muted-foreground text-xs">(una por línea: número,dirección)</span></Label>
+            <Textarea
+              rows={8}
+              placeholder={CSV_PLACEHOLDER}
+              value={text}
+              onChange={e => setText(e.target.value)}
+              className="font-mono text-sm"
+            />
+          </div>
+          {preview.length > 0 && (
+            <div className="rounded-lg border">
+              <p className="px-3 pt-2 text-xs text-muted-foreground font-medium">Vista previa — {preview.length} casas</p>
+              <div className="max-h-40 overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Número</TableHead>
+                      <TableHead className="text-xs">Dirección</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {preview.slice(0, 10).map((h, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs font-medium">{h.houseNumber}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{h.address || '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                    {preview.length > 10 && (
+                      <TableRow>
+                        <TableCell colSpan={2} className="text-xs text-muted-foreground text-center">
+                          +{preview.length - 10} más...
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button onClick={handleImport} disabled={preview.length === 0 || loading}>
+              {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importando...</> : `Importar ${preview.length} casas`}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function AdminHouses() {
-  const { houses, isLoading, addHouse, updateHouse, deleteHouse } = useHouses();
+  const { houses, isLoading, addHouse, updateHouse, deleteHouse, refetch } = useHouses();
   const { toast } = useToast();
   const [formOpen, setFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [selectedHouse, setSelectedHouse] = useState<House | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -96,6 +203,9 @@ export default function AdminHouses() {
               { key: 'status', header: 'Estado' }, { key: 'createdAt', header: 'Registro' },
             ], 'casas')} disabled={filtered.length === 0}>
               <Download className="h-4 w-4" /> CSV
+            </Button>
+            <Button variant="outline" className="gap-2" onClick={() => setImportOpen(true)}>
+              <Upload className="h-4 w-4" /> Importar
             </Button>
             <Button onClick={handleCreate}><Plus className="mr-2 h-4 w-4" /> Nueva Casa</Button>
           </div>
@@ -185,6 +295,7 @@ export default function AdminHouses() {
 
       <HouseFormDialog open={formOpen} onOpenChange={setFormOpen} house={selectedHouse} onSubmit={handleSubmit} />
       <DeleteHouseDialog open={deleteOpen} onOpenChange={setDeleteOpen} house={selectedHouse} onConfirm={handleDeleteConfirm} />
+      <ImportHousesDialog open={importOpen} onOpenChange={setImportOpen} onImported={refetch} />
     </AdminLayout>
   );
 }

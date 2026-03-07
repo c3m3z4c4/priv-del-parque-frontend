@@ -2,15 +2,16 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { 
-  Home, 
-  Calendar, 
+  Home,
+  Calendar,
   CalendarDays,
   TreePine,
   DollarSign,
   User,
   LogOut,
   Menu,
-  X
+  X,
+  ClipboardList,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,7 @@ const vecinoLinks = [
   { to: '/reuniones', label: 'Reuniones', icon: Calendar },
   { to: '/eventos', label: 'Eventos', icon: TreePine },
   { to: '/cuotas', label: 'Cuotas', icon: DollarSign },
+  { to: '/proyectos', label: 'Proyectos', icon: ClipboardList },
   { to: '/perfil', label: 'Perfil', icon: User },
 ];
 

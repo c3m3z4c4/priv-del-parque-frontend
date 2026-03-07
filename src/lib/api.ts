@@ -111,6 +111,11 @@ export const housesApi = {
     }),
   remove: (id: string) =>
     request<void>(`/houses/${id}`, { method: 'DELETE' }),
+  import: (houses: CreateHousePayload[]) =>
+    request<{ created: number; skipped: number; skippedNumbers: string[] }>(
+      '/houses/import',
+      { method: 'POST', body: JSON.stringify({ houses }) },
+    ),
 };
 
 // ─── Meetings ─────────────────────────────────────────────────────────────────
@@ -145,6 +150,45 @@ export const notificationsApi = {
   markAllAsRead: () => request<void>('/notifications/read-all', { method: 'PATCH' }),
 };
 
+// ─── Projects ────────────────────────────────────────────────────────────────
+export type CreateProjectPayload = {
+  name: string;
+  description: string;
+  completionPercentage?: number;
+  status?: import('@/types').ProjectStatus;
+  visibleToVecinos?: boolean;
+};
+export type UpdateProjectPayload = Partial<CreateProjectPayload>;
+
+export const projectsApi = {
+  getAll: () => request<import('@/types').Project[]>('/projects'),
+  create: (data: CreateProjectPayload) =>
+    request<import('@/types').Project>('/projects', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: UpdateProjectPayload) =>
+    request<import('@/types').Project>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  remove: (id: string) => request<void>(`/projects/${id}`, { method: 'DELETE' }),
+};
+
+// ─── Dues Promotions ──────────────────────────────────────────────────────────
+export type CreatePromotionPayload = {
+  name: string;
+  description?: string;
+  monthCount: number;
+  discountPercentage: number;
+  validFrom: string;
+  validTo: string;
+  isActive?: boolean;
+};
+export const promotionsApi = {
+  getActive: () => request<import('@/types').DuesPromotion[]>('/dues/promotions'),
+  getAll: () => request<import('@/types').DuesPromotion[]>('/dues/promotions/all'),
+  create: (data: CreatePromotionPayload) =>
+    request<import('@/types').DuesPromotion>('/dues/promotions', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<CreatePromotionPayload>) =>
+    request<import('@/types').DuesPromotion>(`/dues/promotions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  remove: (id: string) => request<void>(`/dues/promotions/${id}`, { method: 'DELETE' }),
+};
+
 // ─── Dues ────────────────────────────────────────────────────────────────────
 export const duesApi = {
   getConfig: () => request<import('@/types').DuesConfig>('/dues/config'),
@@ -159,4 +203,9 @@ export const duesApi = {
     request<import('@/types').DuesPayment>(`/dues/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   getSummary: (month: number, year: number) =>
     request<import('@/types').DuesSummary>(`/dues/summary?month=${month}&year=${year}`),
+  importPayments: (payments: { email: string; month: number; year: number; paidAt?: string; notes?: string }[]) =>
+    request<{ created: number; updated: number; skipped: number; errors: string[] }>(
+      '/dues/import',
+      { method: 'POST', body: JSON.stringify({ payments }) },
+    ),
 };
