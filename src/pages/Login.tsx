@@ -130,14 +130,6 @@ export default function Login() {
               </Button>
             </form>
 
-            {/* Demo credentials */}
-            <div className="mt-6 rounded-lg bg-muted/50 p-4">
-              <p className="mb-2 text-sm font-medium text-foreground">Credenciales de prueba:</p>
-              <div className="space-y-1 text-xs text-muted-foreground">
-                <p><strong>Admin:</strong> admin@privadasdelparque.com / admin123</p>
-                <p><strong>Vecino:</strong> juan.perez@email.com / vecino123</p>
-              </div>
-            </div>
           </CardContent>
         </Card>
 
