@@ -140,10 +140,11 @@ function ImportHousesDialog({
         const houseNumber = cols[0] ?? '';
         const address = cols[1] || undefined;
         // Col 5 = semicolon-separated emails (from our own CSV export)
+        // Filter strictly to valid email-shaped values so "Sin residentes" or "—" are ignored
         const residentEmails = (cols[5] ?? '')
           .split(';')
           .map(e => e.trim())
-          .filter(Boolean);
+          .filter(e => e.includes('@') && e.includes('.'));
         return { houseNumber, address, residentEmails, duplicate: existingNumbers.has(houseNumber) };
       })
       .filter(h => h.houseNumber);
