@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { VecinoLayout } from '@/components/layouts/VecinoLayout';
-import { useAuth } from '@/contexts/AuthContext';
 import { DuesPayment, DuesPromotion } from '@/types';
 import { duesApi, promotionsApi } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,7 +24,6 @@ function statusBadge(status: DuesPayment['status']) {
 }
 
 export default function VecinoDues() {
-  const { user } = useAuth();
   const { toast } = useToast();
   const [payments, setPayments] = useState<DuesPayment[]>([]);
   const [promotions, setPromotions] = useState<DuesPromotion[]>([]);
@@ -38,11 +36,8 @@ export default function VecinoDues() {
           duesApi.getAll(),
           promotionsApi.getActive(),
         ]);
-        // Filter to only the current user's payments
-        const mine = all.filter(p => p.userId === user?.id);
-        // Sort by year desc, month desc
-        mine.sort((a, b) => b.year - a.year || b.month - a.month);
-        setPayments(mine);
+        all.sort((a, b) => b.year - a.year || b.month - a.month);
+        setPayments(all);
         setPromotions(promos);
       } catch (err: any) {
         toast({ title: 'Error', description: err.message || 'No se pudieron cargar las cuotas.', variant: 'destructive' });
@@ -51,7 +46,7 @@ export default function VecinoDues() {
       }
     };
     load();
-  }, [user?.id]);
+  }, []);
 
   const paidCount = payments.filter(p => p.status === 'paid').length;
   const pendingCount = payments.filter(p => p.status === 'pending').length;
@@ -118,8 +113,9 @@ export default function VecinoDues() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Titular</TableHead>
                       <TableHead>Mes</TableHead>
-                      <TableHead>Ano</TableHead>
+                      <TableHead>Año</TableHead>
                       <TableHead>Monto</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead>Fecha de pago</TableHead>
@@ -128,7 +124,12 @@ export default function VecinoDues() {
                   <TableBody>
                     {payments.map(payment => (
                       <TableRow key={payment.id}>
-                        <TableCell className="font-medium">{MONTHS[payment.month - 1]}</TableCell>
+                        <TableCell className="font-medium">
+                          {payment.user
+                            ? `${payment.user.name} ${payment.user.lastName}`
+                            : '—'}
+                        </TableCell>
+                        <TableCell>{MONTHS[payment.month - 1]}</TableCell>
                         <TableCell>{payment.year}</TableCell>
                         <TableCell>
                           ${Number(payment.amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}

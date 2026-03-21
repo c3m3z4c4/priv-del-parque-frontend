@@ -56,11 +56,10 @@ export default function VecinoHome() {
     queryFn: duesApi.getAll,
   });
 
-  const myDues = dues.filter((d) => d.userId === user?.id);
-  const thisMonthDue = myDues.find(
+  const thisMonthDue = dues.find(
     (d) => d.month === currentMonth && d.year === currentYear,
   );
-  const pendingCount = myDues.filter((d) => d.status === 'pending').length;
+  const pendingCount = dues.filter((d) => d.status === 'pending').length;
 
   // ─── Proyectos ────────────────────────────────────────────────────────────
   const { data: projects = [] } = useQuery({
