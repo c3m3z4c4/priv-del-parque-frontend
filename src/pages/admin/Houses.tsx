@@ -10,10 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2, Home, Search, Download, Upload, Loader2, Users } from 'lucide-react';
-import { useHouses } from '@/hooks/useDataStore';
+import { useHouses, useUsers } from '@/hooks/useDataStore';
 import { House } from '@/types';
 import { CreateHousePayload, UpdateHousePayload, housesApi } from '@/lib/api';
-import { HouseFormDialog } from '@/components/admin/HouseFormDialog';
+import { HouseFormDialog, HouseFormSubmitData } from '@/components/admin/HouseFormDialog';
 import { DeleteHouseDialog } from '@/components/admin/DeleteHouseDialog';
 import { TablePagination, paginate } from '@/components/admin/TablePagination';
 import { useToast } from '@/hooks/use-toast';
@@ -201,6 +201,7 @@ function ImportHousesDialog({
 
 export default function AdminHouses() {
   const { houses, isLoading, addHouse, updateHouse, deleteHouse, refetch } = useHouses();
+  const { users } = useUsers();
   const { toast } = useToast();
   const [formOpen, setFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -215,15 +216,19 @@ export default function AdminHouses() {
   const handleEdit = (house: House) => { setSelectedHouse(house); setFormOpen(true); };
   const handleDeleteClick = (house: House) => { setSelectedHouse(house); setDeleteOpen(true); };
 
-  const handleSubmit = async (data: CreateHousePayload | UpdateHousePayload) => {
+  const handleSubmit = async (data: HouseFormSubmitData) => {
+    const { residentIds, ...houseData } = data;
     try {
+      let savedHouse: House;
       if (selectedHouse) {
-        await updateHouse(selectedHouse.id, data as UpdateHousePayload);
-        toast({ title: 'Casa actualizada', description: `Casa ${data.houseNumber} actualizada correctamente.` });
+        savedHouse = await updateHouse(selectedHouse.id, houseData as UpdateHousePayload);
+        toast({ title: 'Casa actualizada', description: `Casa ${houseData.houseNumber} actualizada correctamente.` });
       } else {
-        await addHouse(data as CreateHousePayload);
-        toast({ title: 'Casa creada', description: `Casa ${data.houseNumber} registrada correctamente.` });
+        savedHouse = await addHouse(houseData as CreateHousePayload);
+        toast({ title: 'Casa creada', description: `Casa ${houseData.houseNumber} registrada correctamente.` });
       }
+      await housesApi.assignResidents(savedHouse.id, residentIds);
+      refetch();
     } catch (err: any) {
       toast({ title: 'Error', description: err.message || 'Ocurrió un error.', variant: 'destructive' });
       throw err;
@@ -424,7 +429,7 @@ export default function AdminHouses() {
         </Card>
       </div>
 
-      <HouseFormDialog open={formOpen} onOpenChange={setFormOpen} house={selectedHouse} onSubmit={handleSubmit} />
+      <HouseFormDialog open={formOpen} onOpenChange={setFormOpen} house={selectedHouse} users={users} onSubmit={handleSubmit} />
       <DeleteHouseDialog open={deleteOpen} onOpenChange={setDeleteOpen} house={selectedHouse} onConfirm={handleDeleteConfirm} />
       <ImportHousesDialog open={importOpen} onOpenChange={setImportOpen} onImported={refetch} />
     </AdminLayout>

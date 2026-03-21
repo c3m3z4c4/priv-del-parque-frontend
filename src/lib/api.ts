@@ -116,6 +116,11 @@ export const housesApi = {
       '/houses/import',
       { method: 'POST', body: JSON.stringify({ houses }) },
     ),
+  assignResidents: (id: string, userIds: string[]) =>
+    request<import('@/types').House>(`/houses/${id}/residents`, {
+      method: 'PATCH',
+      body: JSON.stringify({ userIds }),
+    }),
 };
 
 // ─── Meetings ─────────────────────────────────────────────────────────────────
