@@ -129,6 +129,27 @@ export interface DuesPromotion {
   createdAt: string;
 }
 
+export interface DuesPolicy {
+  id: string;
+  dueDay: number;
+  mobileLockMonths: number;
+  cardLockMonths: number;
+  createdAt: string;
+}
+
+export type DebtorAccessStatus = 'active' | 'mobile_suspended' | 'card_suspended';
+
+export interface Debtor {
+  userId: string;
+  userName: string;
+  userEmail: string;
+  houseNumber: string;
+  houseAddress: string;
+  pendingMonths: number;
+  accessStatus: DebtorAccessStatus;
+  pendingPayments: { month: number; year: number; amount: number }[];
+}
+
 export interface AuthState {
   user: User | null;
   token: string | null;

@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { TablePagination, paginate } from '@/components/admin/TablePagination';
 import { useAuth } from '@/contexts/AuthContext';
-import { DuesPayment, DuesSummary, DuesConfig, DuesPromotion } from '@/types';
-import { duesApi, promotionsApi } from '@/lib/api';
+import { DuesPayment, DuesSummary, DuesConfig, DuesPromotion, DuesPolicy, Debtor } from '@/types';
+import { duesApi, promotionsApi, duesPolicyApi } from '@/lib/api';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,7 +18,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
-  DollarSign, CheckCircle2, Clock, Ban, Banknote, Loader2, Search, RefreshCw, Upload, CalendarDays, Plus, Pencil, Trash2, Tag, FileDown, Download, AlertTriangle,
+  DollarSign, CheckCircle2, Clock, Ban, Banknote, Loader2, Search, RefreshCw, Upload, CalendarDays, Plus, Pencil, Trash2, Tag, FileDown, Download, AlertTriangle, ShieldAlert, Smartphone, CreditCard, Settings2, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { exportBrandedPDF } from '@/lib/exportPDF';
@@ -125,6 +125,42 @@ export default function AdminDues() {
   const [promoForm, setPromoForm] = useState(EMPTY_PROMO);
   const [promoSaving, setPromoSaving] = useState(false);
   const [deletePromo, setDeletePromo] = useState<DuesPromotion | null>(null);
+
+  // Debtors & policy state
+  const [policy, setPolicy] = useState<DuesPolicy | null>(null);
+  const [policyForm, setPolicyForm] = useState({ dueDay: 1, mobileLockMonths: 1, cardLockMonths: 3 });
+  const [policyLoading, setPolicyLoading] = useState(false);
+  const [debtors, setDebtors] = useState<Debtor[]>([]);
+  const [debtorsLoading, setDebtorsLoading] = useState(false);
+  const [expandedDebtor, setExpandedDebtor] = useState<string | null>(null);
+
+  const MONTHS_FULL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  const loadDebtors = useCallback(async () => {
+    setDebtorsLoading(true);
+    try {
+      const [d, p] = await Promise.all([duesPolicyApi.getDebtors(), duesPolicyApi.get()]);
+      setDebtors(d);
+      if (p) { setPolicy(p); setPolicyForm({ dueDay: p.dueDay, mobileLockMonths: p.mobileLockMonths, cardLockMonths: p.cardLockMonths }); }
+    } catch (err: any) {
+      toast({ title: 'Error al cargar adeudos', description: err.message, variant: 'destructive' });
+    } finally {
+      setDebtorsLoading(false);
+    }
+  }, []);
+
+  const handleSavePolicy = async () => {
+    setPolicyLoading(true);
+    try {
+      const saved = await duesPolicyApi.set(policyForm);
+      setPolicy(saved);
+      toast({ title: 'Política actualizada', description: `Cuotas vencen el día ${saved.dueDay} de cada mes.` });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setPolicyLoading(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -584,6 +620,12 @@ export default function AdminDues() {
           <TabsList>
             <TabsTrigger value="cuotas">Cuotas</TabsTrigger>
             <TabsTrigger value="promociones">Promociones</TabsTrigger>
+            {canManage && (
+              <TabsTrigger value="deudores" className="gap-2" onClick={() => { if (debtors.length === 0 && !debtorsLoading) loadDebtors(); }}>
+                <ShieldAlert className="h-4 w-4" /> Deudores
+                {debtors.length > 0 && <span className="ml-1 rounded-full bg-red-500 text-white text-xs px-1.5">{debtors.length}</span>}
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* ─── Tab: Cuotas ──────────────────────────────────────────── */}
@@ -810,6 +852,180 @@ export default function AdminDues() {
               </Card>
             )}
           </TabsContent>
+
+          {/* ─── Tab: Deudores ────────────────────────────────────── */}
+          {canManage && (
+            <TabsContent value="deudores" className="space-y-6">
+
+              {/* Policy Config */}
+              <Card className="shadow-card">
+                <CardHeader>
+                  <CardTitle className="font-serif text-lg flex items-center gap-2">
+                    <Settings2 className="h-5 w-5 text-primary" /> Política de Cuotas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="space-y-1">
+                      <Label>Día de vencimiento (mes)</Label>
+                      <Input
+                        type="number" min={1} max={31}
+                        value={policyForm.dueDay}
+                        onChange={e => setPolicyForm(f => ({ ...f, dueDay: parseInt(e.target.value) || 1 }))}
+                      />
+                      <p className="text-xs text-muted-foreground">Las cuotas vencen el día {policyForm.dueDay} de cada mes</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="flex items-center gap-1"><Smartphone className="h-3.5 w-3.5" /> Suspensión app (meses)</Label>
+                      <Input
+                        type="number" min={1}
+                        value={policyForm.mobileLockMonths}
+                        onChange={e => setPolicyForm(f => ({ ...f, mobileLockMonths: parseInt(e.target.value) || 1 }))}
+                      />
+                      <p className="text-xs text-muted-foreground">Acceso móvil suspendido a partir de {policyForm.mobileLockMonths} mes(es) de adeudo</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="flex items-center gap-1"><CreditCard className="h-3.5 w-3.5" /> Suspensión tarjeta (meses)</Label>
+                      <Input
+                        type="number" min={1}
+                        value={policyForm.cardLockMonths}
+                        onChange={e => setPolicyForm(f => ({ ...f, cardLockMonths: parseInt(e.target.value) || 1 }))}
+                      />
+                      <p className="text-xs text-muted-foreground">Tarjeta suspendida a partir de {policyForm.cardLockMonths} mes(es) de adeudo</p>
+                    </div>
+                  </div>
+                  {policy && (
+                    <p className="text-xs text-muted-foreground">
+                      Política actual: vence día <strong>{policy.dueDay}</strong> · app suspende a <strong>{policy.mobileLockMonths}</strong> mes(es) · tarjeta a <strong>{policy.cardLockMonths}</strong> mes(es)
+                    </p>
+                  )}
+                  <div className="flex justify-end">
+                    <Button onClick={handleSavePolicy} disabled={policyLoading} className="gap-2">
+                      {policyLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando...</> : 'Guardar política'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Debtors Table */}
+              <Card className="shadow-card">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="font-serif text-lg flex items-center gap-2">
+                    <ShieldAlert className="h-5 w-5 text-red-500" />
+                    Residentes con adeudo
+                    {debtors.length > 0 && <span className="text-sm font-normal text-muted-foreground">— {debtors.length} con pagos pendientes</span>}
+                  </CardTitle>
+                  <Button variant="outline" size="sm" className="gap-2" onClick={loadDebtors} disabled={debtorsLoading}>
+                    <RefreshCw className={`h-4 w-4 ${debtorsLoading ? 'animate-spin' : ''}`} /> Actualizar
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {debtorsLoading ? (
+                    <div className="flex items-center justify-center py-16">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  ) : debtors.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-16">
+                      <CheckCircle2 className="h-12 w-12 text-green-400" />
+                      <p className="mt-4 text-lg font-medium">Sin adeudos</p>
+                      <p className="text-sm text-muted-foreground">Todos los residentes están al corriente</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-6" />
+                            <TableHead>Residente</TableHead>
+                            <TableHead className="hidden sm:table-cell">Casa</TableHead>
+                            <TableHead>Meses adeudo</TableHead>
+                            <TableHead>Estado acceso</TableHead>
+                            <TableHead className="hidden md:table-cell">Monto total</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {debtors.map(d => {
+                            const rowBg =
+                              d.accessStatus === 'card_suspended' ? 'bg-red-50 dark:bg-red-950/30' :
+                              d.accessStatus === 'mobile_suspended' ? 'bg-orange-50 dark:bg-orange-950/30' :
+                              'bg-amber-50 dark:bg-amber-950/30';
+                            const isExpanded = expandedDebtor === d.userId;
+                            const totalAmount = d.pendingPayments.reduce((s, p) => s + p.amount, 0);
+                            return (
+                              <>
+                                <TableRow key={d.userId} className={`${rowBg} cursor-pointer`} onClick={() => setExpandedDebtor(isExpanded ? null : d.userId)}>
+                                  <TableCell className="pr-0">
+                                    {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="font-medium">{d.userName}</div>
+                                    <div className="text-xs text-muted-foreground">{d.userEmail}</div>
+                                  </TableCell>
+                                  <TableCell className="hidden sm:table-cell text-muted-foreground">
+                                    {d.houseNumber || '—'}
+                                    {d.houseAddress && <span className="text-xs ml-1">· {d.houseAddress}</span>}
+                                  </TableCell>
+                                  <TableCell>
+                                    <span className={`font-bold text-lg ${
+                                      d.accessStatus === 'card_suspended' ? 'text-red-600' :
+                                      d.accessStatus === 'mobile_suspended' ? 'text-orange-600' :
+                                      'text-amber-600'
+                                    }`}>{d.pendingMonths}</span>
+                                    <span className="text-xs text-muted-foreground ml-1">mes(es)</span>
+                                  </TableCell>
+                                  <TableCell>
+                                    {d.accessStatus === 'card_suspended' && (
+                                      <Badge className="gap-1 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 border-red-300">
+                                        <CreditCard className="h-3 w-3" /> Tarjeta suspendida
+                                      </Badge>
+                                    )}
+                                    {d.accessStatus === 'mobile_suspended' && (
+                                      <Badge className="gap-1 bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 border-orange-300">
+                                        <Smartphone className="h-3 w-3" /> App suspendida
+                                      </Badge>
+                                    )}
+                                    {d.accessStatus === 'active' && (
+                                      <Badge className="gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 border-amber-300">
+                                        <Clock className="h-3 w-3" /> En aviso
+                                      </Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="hidden md:table-cell font-medium">
+                                    ${totalAmount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                  </TableCell>
+                                </TableRow>
+                                {isExpanded && (
+                                  <TableRow key={`${d.userId}-detail`} className={rowBg}>
+                                    <TableCell colSpan={6} className="py-2 px-6">
+                                      <div className="flex flex-wrap gap-2 text-xs">
+                                        {d.pendingPayments.map((p, i) => (
+                                          <span key={i} className="rounded bg-white dark:bg-gray-800 border px-2 py-0.5 text-muted-foreground">
+                                            {MONTHS_FULL[p.month - 1]} {p.year} — ${p.amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Legend */}
+              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2"><span className="inline-block w-3 h-3 rounded-sm bg-amber-200" /> En aviso (según política)</div>
+                <div className="flex items-center gap-2"><span className="inline-block w-3 h-3 rounded-sm bg-orange-200" /> App suspendida</div>
+                <div className="flex items-center gap-2"><span className="inline-block w-3 h-3 rounded-sm bg-red-200" /> Tarjeta suspendida</div>
+              </div>
+
+            </TabsContent>
+          )}
         </Tabs>
       </div>
 

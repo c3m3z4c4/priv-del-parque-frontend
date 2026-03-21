@@ -250,6 +250,14 @@ export const duesApi = {
     request<{ deleted: number }>('/dues/all', { method: 'DELETE' }),
 };
 
+// ─── Dues Policy & Debtors ───────────────────────────────────────────────────
+export const duesPolicyApi = {
+  get: () => request<import('@/types').DuesPolicy | null>('/dues/policy'),
+  set: (data: { dueDay: number; mobileLockMonths: number; cardLockMonths: number }) =>
+    request<import('@/types').DuesPolicy>('/dues/policy', { method: 'POST', body: JSON.stringify(data) }),
+  getDebtors: () => request<import('@/types').Debtor[]>('/dues/debtors'),
+};
+
 // ─── Backup ───────────────────────────────────────────────────────────────────
 export const backupApi = {
   download: async (): Promise<void> => {
