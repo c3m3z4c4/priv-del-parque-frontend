@@ -31,6 +31,7 @@ export interface Meeting {
   endTime?: string;
   location: string;
   description: string;
+  minutes?: string;
   createdAt: string;
   createdById?: string;
 }

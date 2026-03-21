@@ -68,6 +68,16 @@ export default function VecinoMeetings() {
           <p className="text-sm text-muted-foreground">{meeting.description}</p>
         </div>
 
+        {isPast && meeting.minutes && (
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-primary">
+              <FileText className="h-4 w-4" />
+              Acta de la reunión
+            </div>
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{meeting.minutes}</p>
+          </div>
+        )}
+
         {!isPast && (
           <div className="border-t pt-3">
             <p className="mb-2 text-xs font-medium text-muted-foreground">¿Asistirás?</p>

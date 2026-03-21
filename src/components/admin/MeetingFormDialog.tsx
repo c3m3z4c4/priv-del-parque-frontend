@@ -40,6 +40,7 @@ const meetingSchema = z.object({
   endTime: z.string().optional(),
   location: z.string().trim().min(1, 'La ubicación es obligatoria').max(200, 'Máximo 200 caracteres'),
   description: z.string().trim().max(1000, 'Máximo 1000 caracteres').optional(),
+  minutes: z.string().optional(),
 });
 
 type MeetingFormValues = z.infer<typeof meetingSchema>;
@@ -48,7 +49,7 @@ interface MeetingFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   meeting?: Meeting | null;
-  onSubmit: (data: { title: string; location: string; date: string; startTime: string; endTime?: string; description?: string }) => void;
+  onSubmit: (data: { title: string; location: string; date: string; startTime: string; endTime?: string; description?: string; minutes?: string }) => void;
   defaultDate?: Date;
 }
 
@@ -65,6 +66,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit, defau
           endTime: meeting.endTime || '',
           location: meeting.location,
           description: meeting.description || '',
+          minutes: meeting.minutes || '',
         }
       : {
           title: '',
@@ -72,6 +74,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit, defau
           endTime: '',
           location: '',
           description: '',
+          minutes: '',
           ...(defaultDate ? { date: defaultDate } : {}),
         },
   });
@@ -84,6 +87,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit, defau
       endTime: values.endTime || undefined,
       location: values.location,
       description: values.description || '',
+      minutes: values.minutes || undefined,
     });
     form.reset();
     onOpenChange(false);
@@ -213,6 +217,26 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit, defau
                 </FormItem>
               )}
             />
+
+            {isEditing && (
+              <FormField
+                control={form.control}
+                name="minutes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Acta de la reunión (opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Escribe aquí el resumen o acta de lo ocurrido en la reunión..."
+                        className="min-h-[120px] resize-none"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

@@ -142,7 +142,7 @@ export default function Login() {
         </Card>
 
         <p className="text-center text-sm text-muted-foreground">
-          © 2024 Privadas del Parque. Todos los derechos reservados.
+          © 2026 Privadas del Parque. Todos los derechos reservados.
         </p>
       </div>
     </div>

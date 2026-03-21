@@ -121,7 +121,7 @@ export const housesApi = {
 // ─── Meetings ─────────────────────────────────────────────────────────────────
 export type CreateMeetingPayload = {
   title: string; description?: string; location: string;
-  date: string; startTime: string; endTime?: string;
+  date: string; startTime: string; endTime?: string; minutes?: string;
 };
 export const meetingsApi = {
   getAll: () => request<import('@/types').Meeting[]>('/meetings'),
@@ -190,6 +190,10 @@ export const promotionsApi = {
 };
 
 // ─── RSVPs ───────────────────────────────────────────────────────────────────
+export type RsvpWithUser = import('@/types').Rsvp & {
+  user?: { id: string; name: string; lastName: string; email: string; houseId?: string };
+};
+
 export const rsvpsApi = {
   getAll: () => request<import('@/types').Rsvp[]>('/rsvps'),
   upsert: (targetType: 'meeting' | 'event', targetId: string, status: import('@/types').RsvpStatus) =>
@@ -199,6 +203,8 @@ export const rsvpsApi = {
     }),
   remove: (targetType: 'meeting' | 'event', targetId: string) =>
     request<void>(`/rsvps/${targetType}/${targetId}`, { method: 'DELETE' }),
+  getAttendance: (targetType: 'meeting' | 'event', targetId: string) =>
+    request<RsvpWithUser[]>(`/rsvps/${targetType}/${targetId}/attendance`),
 };
 
 // ─── Dues ────────────────────────────────────────────────────────────────────

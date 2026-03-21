@@ -145,7 +145,7 @@ export function VecinoLayout({ children }: { children: React.ReactNode }) {
       {/* Footer */}
       <footer className="border-t bg-card py-6">
         <div className="container text-center text-sm text-muted-foreground">
-          <p>© 2024 Privadas del Parque. Todos los derechos reservados.</p>
+          <p>© 2026 Privadas del Parque. Todos los derechos reservados.</p>
           <p className="mt-1">Bienvenido, {user?.name}</p>
         </div>
       </footer>

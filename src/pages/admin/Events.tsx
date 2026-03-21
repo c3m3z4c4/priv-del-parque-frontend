@@ -14,12 +14,13 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, TreePine, Calendar, Clock, MapPin, Loader2, Search, Download } from 'lucide-react';
+import { Plus, Pencil, Trash2, TreePine, Calendar, Clock, MapPin, Loader2, Search, Download, Users } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { greenAreas } from '@/data/mockData';
 import { RsvpCount } from '@/components/RsvpButtons';
+import { AttendanceDialog } from '@/components/admin/AttendanceDialog';
 
 export default function AdminEvents() {
   const { events, isLoading, addEvent, updateEvent, deleteEvent } = useEvents();
@@ -27,6 +28,7 @@ export default function AdminEvents() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [attendanceOpen, setAttendanceOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<GreenAreaEvent | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'upcoming' | 'past'>('all');
@@ -37,6 +39,7 @@ export default function AdminEvents() {
   const handleCreate = () => { setSelectedEvent(null); setFormOpen(true); };
   const handleEdit = (ev: GreenAreaEvent) => { setSelectedEvent(ev); setFormOpen(true); };
   const handleDelete = (ev: GreenAreaEvent) => { setSelectedEvent(ev); setDeleteOpen(true); };
+  const handleAttendance = (ev: GreenAreaEvent) => { setSelectedEvent(ev); setAttendanceOpen(true); };
 
   const handleFormSubmit = async (data: { title: string; greenArea: string; date: string; startTime: string; endTime?: string; description?: string }) => {
     try {
@@ -201,6 +204,9 @@ export default function AdminEvents() {
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => handleAttendance(ev)} title="Ver asistencia">
+                                  <Users className="h-4 w-4" />
+                                </Button>
                                 <Button variant="ghost" size="icon" onClick={() => handleEdit(ev)} title="Editar">
                                   <Pencil className="h-4 w-4" />
                                 </Button>
@@ -224,6 +230,13 @@ export default function AdminEvents() {
 
       <EventFormDialog key={selectedEvent?.id ?? 'new'} open={formOpen} onOpenChange={setFormOpen} event={selectedEvent} onSubmit={handleFormSubmit} />
       <DeleteEventDialog open={deleteOpen} onOpenChange={setDeleteOpen} event={selectedEvent} onConfirm={handleConfirmDelete} />
+      <AttendanceDialog
+        open={attendanceOpen}
+        onOpenChange={setAttendanceOpen}
+        targetType="event"
+        targetId={selectedEvent?.id ?? ''}
+        targetTitle={selectedEvent?.title ?? ''}
+      />
     </AdminLayout>
   );
 }

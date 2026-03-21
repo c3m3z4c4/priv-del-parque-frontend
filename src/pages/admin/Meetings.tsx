@@ -14,11 +14,12 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, Calendar, MapPin, Clock, Loader2, Search, Download } from 'lucide-react';
+import { Plus, Pencil, Trash2, Calendar, MapPin, Clock, Loader2, Search, Download, FileText, Users } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { RsvpCount } from '@/components/RsvpButtons';
+import { AttendanceDialog } from '@/components/admin/AttendanceDialog';
 
 export default function AdminMeetings() {
   const { meetings, isLoading, addMeeting, updateMeeting, deleteMeeting } = useMeetings();
@@ -26,6 +27,7 @@ export default function AdminMeetings() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [attendanceOpen, setAttendanceOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'upcoming' | 'past'>('all');
@@ -35,8 +37,9 @@ export default function AdminMeetings() {
   const handleCreate = () => { setSelectedMeeting(null); setFormOpen(true); };
   const handleEdit = (meeting: Meeting) => { setSelectedMeeting(meeting); setFormOpen(true); };
   const handleDelete = (meeting: Meeting) => { setSelectedMeeting(meeting); setDeleteOpen(true); };
+  const handleAttendance = (meeting: Meeting) => { setSelectedMeeting(meeting); setAttendanceOpen(true); };
 
-  const handleFormSubmit = async (data: { title: string; location: string; date: string; startTime: string; endTime?: string; description?: string }) => {
+  const handleFormSubmit = async (data: { title: string; location: string; date: string; startTime: string; endTime?: string; description?: string; minutes?: string }) => {
     try {
       if (selectedMeeting) {
         await updateMeeting(selectedMeeting.id, data);
@@ -154,6 +157,7 @@ export default function AdminMeetings() {
                         <TableHead>Hora</TableHead>
                         <TableHead className="hidden md:table-cell">Ubicación</TableHead>
                         <TableHead>Estado</TableHead>
+                        <TableHead>Acta</TableHead>
                         <TableHead>RSVP</TableHead>
                         <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
@@ -187,10 +191,22 @@ export default function AdminMeetings() {
                               <Badge variant={past ? 'secondary' : 'default'}>{past ? 'Pasada' : 'Próxima'}</Badge>
                             </TableCell>
                             <TableCell>
+                              {meeting.minutes ? (
+                                <span className="flex items-center gap-1 text-xs text-primary">
+                                  <FileText className="h-3.5 w-3.5" /> Sí
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
                               <RsvpCount targetType="meeting" targetId={meeting.id} />
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => handleAttendance(meeting)} title="Ver asistencia">
+                                  <Users className="h-4 w-4" />
+                                </Button>
                                 <Button variant="ghost" size="icon" onClick={() => handleEdit(meeting)} title="Editar">
                                   <Pencil className="h-4 w-4" />
                                 </Button>
@@ -214,6 +230,13 @@ export default function AdminMeetings() {
 
       <MeetingFormDialog key={selectedMeeting?.id ?? 'new'} open={formOpen} onOpenChange={setFormOpen} meeting={selectedMeeting} onSubmit={handleFormSubmit} />
       <DeleteMeetingDialog open={deleteOpen} onOpenChange={setDeleteOpen} meeting={selectedMeeting} onConfirm={handleConfirmDelete} />
+      <AttendanceDialog
+        open={attendanceOpen}
+        onOpenChange={setAttendanceOpen}
+        targetType="meeting"
+        targetId={selectedMeeting?.id ?? ''}
+        targetTitle={selectedMeeting?.title ?? ''}
+      />
     </AdminLayout>
   );
 }
