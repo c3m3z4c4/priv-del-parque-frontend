@@ -3,8 +3,9 @@ import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { UserFormDialog } from '@/components/admin/UserFormDialog';
 import { DeleteUserDialog } from '@/components/admin/DeleteUserDialog';
 import { TablePagination, paginate } from '@/components/admin/TablePagination';
-import { exportToCSV } from '@/lib/exportCSV';
 import { useUsers, useHouses } from '@/hooks/useDataStore';
+import { exportBrandedPDF } from '@/lib/exportPDF';
+import logo from '@/assets/logo.png';
 import { User } from '@/types';
 import { CreateUserPayload, UpdateUserPayload } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, Users as UsersIcon, Loader2, Shield, Home, Search, Download, Star } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users as UsersIcon, Loader2, Shield, Home, Search, FileText, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminUsers() {
@@ -105,12 +106,24 @@ export default function AdminUsers() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2" onClick={() => exportToCSV(filtered, [
-              { key: 'name', header: 'Nombre' }, { key: 'lastName', header: 'Apellidos' },
-              { key: 'email', header: 'Email' }, { key: 'phone', header: 'Teléfono' },
-              { key: 'role', header: 'Rol' },
-            ], 'usuarios')} disabled={filtered.length === 0}>
-              <Download className="h-4 w-4" /> CSV
+            <Button variant="outline" className="gap-2" onClick={() => {
+              const houseMap = Object.fromEntries(houses.map(h => [h.id, h.houseNumber]));
+              const roleLabel = (r: string) => r === 'SUPER_ADMIN' ? 'Super Admin' : r === 'ADMIN' ? 'Admin' : r;
+              exportBrandedPDF({
+                title: 'Directorio de Usuarios',
+                subtitle: `Reporte de residentes — ${filtered.length} usuarios`,
+                logoUrl: logo,
+                columns: ['Nombre', 'Email', 'Rol', 'Teléfono', 'Casa'],
+                rows: filtered.map(u => [
+                  `${u.name} ${u.lastName}`,
+                  u.email,
+                  roleLabel(u.role),
+                  u.phone || '—',
+                  u.houseId ? (houseMap[u.houseId] || '—') : '—',
+                ]),
+              });
+            }} disabled={filtered.length === 0}>
+              <FileText className="h-4 w-4" /> Exportar PDF
             </Button>
             <Button onClick={handleCreate} className="gap-2">
               <Plus className="h-4 w-4" /> Nuevo Usuario

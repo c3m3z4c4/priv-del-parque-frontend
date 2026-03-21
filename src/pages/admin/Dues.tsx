@@ -21,6 +21,8 @@ import {
   DollarSign, CheckCircle2, Clock, Ban, Banknote, Loader2, Search, RefreshCw, Upload, CalendarDays, Plus, Pencil, Trash2, Tag, FileDown,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { exportBrandedPDF } from '@/lib/exportPDF';
+import logo from '@/assets/logo.png';
 
 const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -299,67 +301,33 @@ export default function AdminDues() {
 
   const handleExportPDF = () => {
     const monthName = MONTHS[month - 1];
-    const rows = payments.map(p => {
-      const name = p.user ? `${p.user.name} ${p.user.lastName}` : p.userId;
-      const house = p.house?.houseNumber ?? '--';
-      const amount = `$${Number(p.amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
-      const statusLabel = p.status === 'paid' ? 'Pagado' : p.status === 'exempt' ? 'Exento' : 'Pendiente';
-      const statusColor = p.status === 'paid' ? '#16a34a' : p.status === 'exempt' ? '#6b7280' : '#d97706';
-      const paidDate = p.paidAt
-        ? new Date(p.paidAt + (p.paidAt.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('es-MX')
-        : '--';
-      return `<tr>
-        <td>${name}</td>
-        <td>${house}</td>
-        <td>${amount}</td>
-        <td style="color:${statusColor};font-weight:600">${statusLabel}</td>
-        <td>${paidDate}</td>
-      </tr>`;
-    }).join('');
-
     const collected = summary?.collectedAmount ?? 0;
     const total = summary?.totalAmount ?? 0;
-
-    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-      <title>Cuotas ${monthName} ${year}</title>
-      <style>
-        body { font-family: Arial, sans-serif; margin: 32px; color: #111; }
-        h1 { font-size: 22px; margin-bottom: 4px; }
-        .subtitle { color: #555; font-size: 13px; margin-bottom: 20px; }
-        .summary { display: flex; gap: 24px; margin-bottom: 24px; flex-wrap: wrap; }
-        .stat { border: 1px solid #ddd; border-radius: 6px; padding: 10px 18px; min-width: 120px; }
-        .stat-label { font-size: 11px; color: #777; margin-bottom: 2px; }
-        .stat-value { font-size: 20px; font-weight: 700; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th { background: #f3f4f6; text-align: left; padding: 8px 10px; border-bottom: 2px solid #ddd; }
-        td { padding: 7px 10px; border-bottom: 1px solid #eee; }
-        tr:last-child td { border-bottom: none; }
-        .footer { margin-top: 20px; font-size: 11px; color: #aaa; }
-        @media print { body { margin: 16px; } }
-      </style></head><body>
-      <h1>Reporte de Cuotas — ${monthName} ${year}</h1>
-      <p class="subtitle">Privadas del Parque &nbsp;|&nbsp; Generado el ${new Date().toLocaleDateString('es-MX')}</p>
-      <div class="summary">
-        <div class="stat"><div class="stat-label">Total registros</div><div class="stat-value">${summary?.total ?? 0}</div></div>
-        <div class="stat"><div class="stat-label">Pagados</div><div class="stat-value" style="color:#16a34a">${summary?.paid ?? 0}</div></div>
-        <div class="stat"><div class="stat-label">Pendientes</div><div class="stat-value" style="color:#d97706">${summary?.pending ?? 0}</div></div>
-        <div class="stat"><div class="stat-label">Exentos</div><div class="stat-value" style="color:#6b7280">${summary?.exempt ?? 0}</div></div>
-        <div class="stat"><div class="stat-label">Recaudado</div><div class="stat-value">$${collected.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div></div>
-        <div class="stat"><div class="stat-label">Total esperado</div><div class="stat-value">$${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div></div>
-      </div>
-      <table>
-        <thead><tr><th>Vecino</th><th>Casa</th><th>Monto</th><th>Estado</th><th>Fecha de pago</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-      <p class="footer">Total de registros: ${payments.length}</p>
-      </body></html>`;
-
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 400);
+    const rows = payments.map(p => {
+      const name = p.user ? `${p.user.name} ${p.user.lastName}` : p.userId;
+      const house = p.house?.houseNumber ?? '—';
+      const amount = `$${Number(p.amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+      const statusLabel = p.status === 'paid' ? 'Pagado' : p.status === 'exempt' ? 'Exento' : 'Pendiente';
+      const paidDate = p.paidAt
+        ? new Date(p.paidAt + (p.paidAt.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('es-MX')
+        : '—';
+      return [name, house, amount, statusLabel, paidDate];
+    });
+    exportBrandedPDF({
+      title: `Reporte de Cuotas — ${monthName} ${year}`,
+      subtitle: `Periodo: ${monthName} ${year}`,
+      logoUrl: logo,
+      columns: ['Vecino', 'Casa', 'Monto', 'Estado', 'Fecha de pago'],
+      rows,
+      stats: [
+        { label: 'Total registros', value: String(summary?.total ?? 0) },
+        { label: 'Pagados', value: String(summary?.paid ?? 0), color: '#16a34a' },
+        { label: 'Pendientes', value: String(summary?.pending ?? 0), color: '#d97706' },
+        { label: 'Exentos', value: String(summary?.exempt ?? 0), color: '#6b7280' },
+        { label: 'Recaudado', value: `$${collected.toLocaleString('es-MX', { minimumFractionDigits: 2 })}` },
+        { label: 'Total esperado', value: `$${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}` },
+      ],
+    });
   };
 
   const filtered = useMemo(() => {

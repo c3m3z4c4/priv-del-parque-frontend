@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Home, Search, Download, Upload, Loader2, Users } from 'lucide-react';
+import { Plus, Pencil, Trash2, Home, Search, Download, Upload, Loader2, Users, FileText } from 'lucide-react';
 import { useHouses, useUsers } from '@/hooks/useDataStore';
 import { House } from '@/types';
 import { CreateHousePayload, UpdateHousePayload, housesApi } from '@/lib/api';
@@ -17,6 +17,8 @@ import { HouseFormDialog, HouseFormSubmitData } from '@/components/admin/HouseFo
 import { DeleteHouseDialog } from '@/components/admin/DeleteHouseDialog';
 import { TablePagination, paginate } from '@/components/admin/TablePagination';
 import { useToast } from '@/hooks/use-toast';
+import { exportBrandedPDF } from '@/lib/exportPDF';
+import logo from '@/assets/logo.png';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -29,7 +31,7 @@ function escapeCSV(value: string): string {
 
 function exportHousesCSV(houses: House[]) {
   const BOM = '\uFEFF';
-  const headers = ['Número', 'Dirección', 'Estado', 'Registro', 'Residentes', 'Emails residentes'];
+  const headers = ['Número', 'Calle', 'Estado', 'Registro', 'Residentes', 'Emails residentes'];
   const rows = houses.map(h => {
     const residents = h.residents ?? [];
     const names = residents.map(r => `${r.name} ${r.lastName}`).join('; ');
@@ -54,6 +56,27 @@ function exportHousesCSV(houses: House[]) {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+function exportHousesPDF(houses: House[]) {
+  const rows = houses.map(h => {
+    const residents = h.residents ?? [];
+    const names = residents.length > 0 ? residents.map(r => `${r.name} ${r.lastName}`).join(', ') : '—';
+    return [
+      h.houseNumber,
+      h.address || '—',
+      h.status === 'active' ? 'Activa' : 'Inactiva',
+      names,
+      new Date(h.createdAt).toLocaleDateString('es-MX'),
+    ];
+  });
+  exportBrandedPDF({
+    title: 'Directorio de Casas',
+    subtitle: `Reporte generado — ${houses.length} casas`,
+    logoUrl: logo,
+    columns: ['Número', 'Calle', 'Estado', 'Residentes', 'Registro'],
+    rows,
+  });
 }
 
 // ─── Import dialog ────────────────────────────────────────────────────────────
@@ -139,7 +162,7 @@ function ImportHousesDialog({
           <div className="space-y-1">
             <Label>
               Lista de casas{' '}
-              <span className="text-muted-foreground text-xs">(una por línea: número,dirección)</span>
+              <span className="text-muted-foreground text-xs">(una por línea: número,calle)</span>
             </Label>
             <Textarea
               rows={7}
@@ -160,7 +183,7 @@ function ImportHousesDialog({
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-xs">Número</TableHead>
-                      <TableHead className="text-xs">Dirección</TableHead>
+                      <TableHead className="text-xs">Calle</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -292,6 +315,14 @@ export default function AdminHouses() {
             <Button
               variant="outline"
               className="gap-2"
+              onClick={() => exportHousesPDF(filtered)}
+              disabled={filtered.length === 0}
+            >
+              <FileText className="h-4 w-4" /> Exportar PDF
+            </Button>
+            <Button
+              variant="outline"
+              className="gap-2"
               onClick={() => exportHousesCSV(filtered)}
               disabled={filtered.length === 0}
             >
@@ -356,7 +387,7 @@ export default function AdminHouses() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Número</TableHead>
-                        <TableHead className="hidden sm:table-cell">Dirección</TableHead>
+                        <TableHead className="hidden sm:table-cell">Calle</TableHead>
                         <TableHead>Estado</TableHead>
                         <TableHead>
                           <span className="flex items-center gap-1.5">
