@@ -86,8 +86,8 @@ B-01
 B-02,Av. Principal 10`;
 
 function ImportHousesDialog({
-  open, onOpenChange, onImported,
-}: { open: boolean; onOpenChange: (v: boolean) => void; onImported: () => void }) {
+  open, onOpenChange, onImported, existingNumbers,
+}: { open: boolean; onOpenChange: (v: boolean) => void; onImported: () => void; existingNumbers: Set<string> }) {
   const { toast } = useToast();
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -100,10 +100,11 @@ function ImportHousesDialog({
       .filter(Boolean)
       .map(line => {
         const [houseNumber, ...rest] = line.split(',');
-        return { houseNumber: houseNumber.trim(), address: rest.join(',').trim() || undefined };
+        const num = houseNumber.trim();
+        return { houseNumber: num, address: rest.join(',').trim() || undefined, duplicate: existingNumbers.has(num) };
       })
       .filter(h => h.houseNumber);
-  }, [text]);
+  }, [text, existingNumbers]);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -174,29 +175,47 @@ function ImportHousesDialog({
           </div>
 
           {preview.length > 0 && (
-            <div className="rounded-lg border">
-              <p className="px-3 pt-2 text-xs text-muted-foreground font-medium">
-                Vista previa — {preview.length} casas
-              </p>
-              <div className="max-h-40 overflow-y-auto">
+            <div className="rounded-lg border overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 bg-muted/40">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Vista previa — {preview.length} casas
+                </p>
+                <div className="flex gap-3 text-xs">
+                  <span className="text-green-700 font-medium">
+                    {preview.filter(h => !h.duplicate).length} nuevas
+                  </span>
+                  {preview.some(h => h.duplicate) && (
+                    <span className="text-amber-600 font-medium">
+                      {preview.filter(h => h.duplicate).length} duplicadas
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="max-h-44 overflow-y-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-xs">Número</TableHead>
                       <TableHead className="text-xs">Calle</TableHead>
+                      <TableHead className="text-xs">Estado</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {preview.slice(0, 10).map((h, i) => (
-                      <TableRow key={i}>
+                    {preview.slice(0, 15).map((h, i) => (
+                      <TableRow key={i} className={h.duplicate ? 'opacity-60' : ''}>
                         <TableCell className="text-xs font-medium">{h.houseNumber}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{h.address || '—'}</TableCell>
+                        <TableCell className="text-xs">
+                          {h.duplicate
+                            ? <span className="text-amber-600 font-medium">Duplicada</span>
+                            : <span className="text-green-700 font-medium">Nueva</span>}
+                        </TableCell>
                       </TableRow>
                     ))}
-                    {preview.length > 10 && (
+                    {preview.length > 15 && (
                       <TableRow>
-                        <TableCell colSpan={2} className="text-xs text-muted-foreground text-center">
-                          +{preview.length - 10} más...
+                        <TableCell colSpan={3} className="text-xs text-muted-foreground text-center">
+                          +{preview.length - 15} más...
                         </TableCell>
                       </TableRow>
                     )}
@@ -208,10 +227,10 @@ function ImportHousesDialog({
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button onClick={handleImport} disabled={preview.length === 0 || loading}>
+            <Button onClick={handleImport} disabled={preview.filter(h => !h.duplicate).length === 0 || loading}>
               {loading
                 ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importando...</>
-                : `Importar ${preview.length} casas`}
+                : `Importar ${preview.filter(h => !h.duplicate).length} casas nuevas`}
             </Button>
           </div>
         </div>
@@ -462,7 +481,7 @@ export default function AdminHouses() {
 
       <HouseFormDialog open={formOpen} onOpenChange={setFormOpen} house={selectedHouse} users={users} onSubmit={handleSubmit} />
       <DeleteHouseDialog open={deleteOpen} onOpenChange={setDeleteOpen} house={selectedHouse} onConfirm={handleDeleteConfirm} />
-      <ImportHousesDialog open={importOpen} onOpenChange={setImportOpen} onImported={refetch} />
+      <ImportHousesDialog open={importOpen} onOpenChange={setImportOpen} onImported={refetch} existingNumbers={new Set(houses.map(h => h.houseNumber))} />
     </AdminLayout>
   );
 }
