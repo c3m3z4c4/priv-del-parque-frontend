@@ -23,6 +23,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { exportBrandedPDF } from '@/lib/exportPDF';
 import logo from '@/assets/logo.png';
+import { useSortable, applySortLocale } from '@/hooks/useSortable';
+import { SortableHead } from '@/components/admin/SortableHead';
 
 const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -73,6 +75,7 @@ export default function AdminDues() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const { sortCol, sortDir, handleSort } = useSortable('house');
 
   const [selectedPayment, setSelectedPayment] = useState<DuesPayment | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -343,6 +346,17 @@ export default function AdminDues() {
     });
   }, [payments, statusFilter, search]);
 
+  const displayed = useMemo(() =>
+    applySortLocale(filtered, sortCol, sortDir, (p, col) => {
+      if (col === 'vecino') return p.user ? `${p.user.name} ${p.user.lastName}` : '';
+      if (col === 'house') return p.house?.houseNumber ?? '';
+      if (col === 'amount') return Number(p.amount);
+      if (col === 'status') return p.status;
+      if (col === 'paidAt') return p.paidAt ?? '';
+      return '';
+    }),
+  [filtered, sortCol, sortDir]);
+
   if (loading) {
     return (
       <AdminLayout>
@@ -570,16 +584,16 @@ export default function AdminDues() {
                           <Table>
                             <TableHeader>
                               <TableRow>
-                                <TableHead>Vecino</TableHead>
-                                <TableHead className="hidden sm:table-cell">Casa</TableHead>
-                                <TableHead>Monto</TableHead>
-                                <TableHead>Estado</TableHead>
-                                <TableHead className="hidden md:table-cell">Fecha de pago</TableHead>
+                                <SortableHead label="Vecino" colKey="vecino" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                                <SortableHead label="Casa" colKey="house" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="hidden sm:table-cell" />
+                                <SortableHead label="Monto" colKey="amount" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                                <SortableHead label="Estado" colKey="status" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                                <SortableHead label="Fecha de pago" colKey="paidAt" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="hidden md:table-cell" />
                                 <TableHead className="text-right">Acciones</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {paginate(filtered, page, pageSize).map(payment => (
+                              {paginate(displayed, page, pageSize).map(payment => (
                                 <TableRow key={payment.id}>
                                   <TableCell className="font-medium">
                                     {payment.user
@@ -610,7 +624,7 @@ export default function AdminDues() {
                             </TableBody>
                           </Table>
                         </div>
-                        <TablePagination totalItems={filtered.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
+                        <TablePagination totalItems={displayed.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
                       </>
                     )}
                   </CardContent>

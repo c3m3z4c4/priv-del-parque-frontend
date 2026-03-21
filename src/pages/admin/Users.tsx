@@ -6,6 +6,8 @@ import { TablePagination, paginate } from '@/components/admin/TablePagination';
 import { useUsers, useHouses } from '@/hooks/useDataStore';
 import { exportBrandedPDF } from '@/lib/exportPDF';
 import logo from '@/assets/logo.png';
+import { useSortable, applySortLocale } from '@/hooks/useSortable';
+import { SortableHead } from '@/components/admin/SortableHead';
 import { User } from '@/types';
 import { CreateUserPayload, UpdateUserPayload } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -31,6 +33,7 @@ export default function AdminUsers() {
   const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'VECINO' | 'SUPER_ADMIN'>('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const { sortCol, sortDir, handleSort } = useSortable('name');
 
   const handleCreate = () => { setSelectedUser(null); setFormOpen(true); };
   const handleEdit = (u: User) => { setSelectedUser(u); setFormOpen(true); };
@@ -84,6 +87,18 @@ export default function AdminUsers() {
       return true;
     });
   }, [users, search, roleFilter]);
+
+  const displayed = useMemo(() => {
+    const houseMap = Object.fromEntries(houses.map(h => [h.id, h.houseNumber]));
+    return applySortLocale(filtered, sortCol, sortDir, (u, col) => {
+      if (col === 'name') return `${u.name} ${u.lastName}`;
+      if (col === 'email') return u.email;
+      if (col === 'role') return u.role;
+      if (col === 'phone') return u.phone ?? '';
+      if (col === 'house') return u.houseId ? (houseMap[u.houseId] ?? '') : '';
+      return '';
+    });
+  }, [filtered, sortCol, sortDir, houses]);
 
   if (isLoading) {
     return (
@@ -172,16 +187,16 @@ export default function AdminUsers() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Nombre</TableHead>
-                        <TableHead className="hidden sm:table-cell">Email</TableHead>
-                        <TableHead>Rol</TableHead>
-                        <TableHead className="hidden md:table-cell">Teléfono</TableHead>
-                        <TableHead className="hidden md:table-cell">Casa</TableHead>
+                        <SortableHead label="Nombre" colKey="name" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                        <SortableHead label="Email" colKey="email" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="hidden sm:table-cell" />
+                        <SortableHead label="Rol" colKey="role" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                        <SortableHead label="Teléfono" colKey="phone" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="hidden md:table-cell" />
+                        <SortableHead label="Casa" colKey="house" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="hidden md:table-cell" />
                         <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paginate(filtered, page, pageSize).map((u) => (
+                      {paginate(displayed, page, pageSize).map((u) => (
                         <TableRow key={u.id}>
                           <TableCell className="font-medium">{u.name} {u.lastName}</TableCell>
                           <TableCell className="hidden sm:table-cell text-muted-foreground">{u.email}</TableCell>
@@ -203,7 +218,7 @@ export default function AdminUsers() {
                     </TableBody>
                   </Table>
                 </div>
-                <TablePagination totalItems={filtered.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
+                <TablePagination totalItems={displayed.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
               </>
             )}
           </CardContent>

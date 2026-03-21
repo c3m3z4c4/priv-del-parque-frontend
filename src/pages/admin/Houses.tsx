@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2, Home, Search, Download, Upload, Loader2, Users, FileText } from 'lucide-react';
+import { useSortable, applySortLocale } from '@/hooks/useSortable';
+import { SortableHead } from '@/components/admin/SortableHead';
 import { useHouses, useUsers } from '@/hooks/useDataStore';
 import { House } from '@/types';
 import { CreateHousePayload, UpdateHousePayload, housesApi } from '@/lib/api';
@@ -320,6 +322,7 @@ export default function AdminHouses() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const { sortCol, sortDir, handleSort } = useSortable('address');
 
   const handleCreate = () => { setSelectedHouse(null); setFormOpen(true); };
   const handleEdit = (house: House) => { setSelectedHouse(house); setFormOpen(true); };
@@ -359,20 +362,29 @@ export default function AdminHouses() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return [...houses]
-      .filter(h => {
-        if (q) {
-          const residentMatch = (h.residents ?? []).some(
-            r => `${r.name} ${r.lastName}`.toLowerCase().includes(q) || r.email.toLowerCase().includes(q)
-          );
-          if (!h.houseNumber.toLowerCase().includes(q) && !(h.address ?? '').toLowerCase().includes(q) && !residentMatch)
-            return false;
-        }
-        if (statusFilter !== 'all' && h.status !== statusFilter) return false;
-        return true;
-      })
-      .sort((a, b) => a.houseNumber.localeCompare(b.houseNumber));
+    return houses.filter(h => {
+      if (q) {
+        const residentMatch = (h.residents ?? []).some(
+          r => `${r.name} ${r.lastName}`.toLowerCase().includes(q) || r.email.toLowerCase().includes(q)
+        );
+        if (!h.houseNumber.toLowerCase().includes(q) && !(h.address ?? '').toLowerCase().includes(q) && !residentMatch)
+          return false;
+      }
+      if (statusFilter !== 'all' && h.status !== statusFilter) return false;
+      return true;
+    });
   }, [houses, search, statusFilter]);
+
+  const displayed = useMemo(() =>
+    applySortLocale(filtered, sortCol, sortDir, (h, col) => {
+      if (col === 'houseNumber') return h.houseNumber;
+      if (col === 'address') return h.address ?? '';
+      if (col === 'status') return h.status === 'active' ? 'Activa' : 'Inactiva';
+      if (col === 'residents') return h.residents?.length ?? 0;
+      if (col === 'createdAt') return h.createdAt;
+      return '';
+    }),
+  [filtered, sortCol, sortDir]);
 
   const activeCount = houses.filter(h => h.status === 'active').length;
   const occupiedCount = houses.filter(h => (h.residents?.length ?? 0) > 0).length;
@@ -472,20 +484,16 @@ export default function AdminHouses() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Número</TableHead>
-                        <TableHead className="hidden sm:table-cell">Calle</TableHead>
-                        <TableHead>Estado</TableHead>
-                        <TableHead>
-                          <span className="flex items-center gap-1.5">
-                            <Users className="h-3.5 w-3.5" /> Residentes
-                          </span>
-                        </TableHead>
-                        <TableHead className="hidden md:table-cell">Registro</TableHead>
+                        <SortableHead label="Número" colKey="houseNumber" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                        <SortableHead label="Calle" colKey="address" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="hidden sm:table-cell" />
+                        <SortableHead label="Estado" colKey="status" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                        <SortableHead label="Residentes" colKey="residents" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                        <SortableHead label="Registro" colKey="createdAt" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="hidden md:table-cell" />
                         <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paginate(filtered, page, pageSize).map(house => {
+                      {paginate(displayed, page, pageSize).map(house => {
                         const residents = house.residents ?? [];
                         return (
                           <TableRow key={house.id}>
@@ -534,7 +542,7 @@ export default function AdminHouses() {
                   </Table>
                 </div>
                 <TablePagination
-                  totalItems={filtered.length}
+                  totalItems={displayed.length}
                   page={page}
                   pageSize={pageSize}
                   onPageChange={setPage}
