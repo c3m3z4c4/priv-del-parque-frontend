@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { TablePagination, paginate } from '@/components/admin/TablePagination';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,7 +18,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
-  DollarSign, CheckCircle2, Clock, Ban, Banknote, Loader2, Search, RefreshCw, Upload, CalendarDays, Plus, Pencil, Trash2, Tag, FileDown,
+  DollarSign, CheckCircle2, Clock, Ban, Banknote, Loader2, Search, RefreshCw, Upload, CalendarDays, Plus, Pencil, Trash2, Tag, FileDown, Download, AlertTriangle,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { exportBrandedPDF } from '@/lib/exportPDF';
@@ -57,10 +57,35 @@ const EMPTY_PROMO = {
   isActive: true,
 };
 
+const MONTHS_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+function escapeCSV(v: string): string {
+  if (v.includes(',') || v.includes('"') || v.includes('\n')) return `"${v.replace(/"/g, '""')}"`;
+  return v;
+}
+
+function parseCSVLine(line: string): string[] {
+  const cols: string[] = [];
+  let cur = '';
+  let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+      else { inQ = !inQ; }
+    } else if (ch === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+    else { cur += ch; }
+  }
+  cols.push(cur.trim());
+  return cols;
+}
+
 export default function AdminDues() {
   const { user } = useAuth();
   const { toast } = useToast();
   const isTesorero = user?.role === 'TESORERO';
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const canManage = isTesorero || isAdmin;
 
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -83,8 +108,11 @@ export default function AdminDues() {
   const [saving, setSaving] = useState(false);
 
   const [importOpen, setImportOpen] = useState(false);
-  const [importText, setImportText] = useState('');
+  const [importPreviewRows, setImportPreviewRows] = useState<{ email: string; month: number; year: number; paidAt: string; notes: string }[]>([]);
   const [importLoading, setImportLoading] = useState(false);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false);
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   const [annualSummaries, setAnnualSummaries] = useState<(DuesSummary & { month: number })[]>([]);
   const [annualLoading, setAnnualLoading] = useState(false);
@@ -147,31 +175,54 @@ export default function AdminDues() {
     }
   }, [year]);
 
-  const handleImportPayments = async () => {
-    const lines = importText.split('\n').map(l => l.trim()).filter(Boolean);
-    const parsed = lines.map(line => {
-      const [email, monthStr, yearStr, paidAt, ...notesParts] = line.split(',');
-      return {
-        email: email?.trim(),
-        month: Number(monthStr?.trim()),
-        year: Number(yearStr?.trim()),
-        paidAt: paidAt?.trim() || undefined,
-        notes: notesParts.join(',').trim() || undefined,
-      };
-    }).filter(p => p.email && p.month && p.year);
+  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      const rows: typeof importPreviewRows = [];
+      for (const line of lines) {
+        const cols = parseCSVLine(line);
+        const email = cols[0]?.trim();
+        const monthNum = Number(cols[1]?.trim());
+        const yearNum = Number(cols[2]?.trim());
+        if (!email || email.toLowerCase() === 'email' || !monthNum || !yearNum) continue;
+        rows.push({
+          email,
+          month: monthNum,
+          year: yearNum,
+          paidAt: cols[3]?.trim() || '',
+          notes: cols[4]?.trim() || '',
+        });
+      }
+      setImportPreviewRows(rows);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
-    if (parsed.length === 0) {
+  const handleImportPayments = async () => {
+    if (importPreviewRows.length === 0) {
       toast({ title: 'Error', description: 'No se detectaron registros validos.', variant: 'destructive' });
       return;
     }
+    const payload = importPreviewRows.map(r => ({
+      email: r.email,
+      month: r.month,
+      year: r.year,
+      paidAt: r.paidAt || undefined,
+      notes: r.notes || undefined,
+    }));
     setImportLoading(true);
     try {
-      const result = await duesApi.importPayments(parsed);
+      const result = await duesApi.importPayments(payload);
       toast({
         title: 'Importacion completada',
         description: `${result.created} creados, ${result.updated} actualizados, ${result.skipped} omitidos.${result.errors.length ? ` Errores: ${result.errors.slice(0, 3).join('; ')}` : ''}`,
       });
-      setImportText('');
+      setImportPreviewRows([]);
       setImportOpen(false);
       load();
     } catch (err: any) {
@@ -179,6 +230,42 @@ export default function AdminDues() {
     } finally {
       setImportLoading(false);
     }
+  };
+
+  const handleDeleteAll = async () => {
+    setDeleteAllLoading(true);
+    try {
+      const result = await duesApi.deleteAll();
+      toast({ title: 'Pagos eliminados', description: `Se eliminaron ${result.deleted} registros.` });
+      setDeleteAllOpen(false);
+      load();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setDeleteAllLoading(false);
+    }
+  };
+
+  const handleExportCSV = () => {
+    const monthName = MONTHS[month - 1];
+    const header = ['Vecino', 'Email', 'Casa', 'Monto', 'Estado', 'Fecha de pago', 'Notas'];
+    const rows = payments.map(p => [
+      p.user ? `${p.user.name} ${p.user.lastName}` : p.userId,
+      p.user?.email ?? '',
+      p.house?.houseNumber ?? '',
+      Number(p.amount).toFixed(2),
+      p.status === 'paid' ? 'Pagado' : p.status === 'exempt' ? 'Exento' : 'Pendiente',
+      p.paidAt ? new Date(p.paidAt + (p.paidAt.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('es-MX') : '',
+      p.notes ?? '',
+    ]);
+    const csv = [header, ...rows].map(r => r.map(escapeCSV).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cuotas_${monthName}_${year}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleGenerate = async () => {
@@ -402,9 +489,17 @@ export default function AdminDues() {
             <Button variant="outline" className="gap-2" onClick={handleExportPDF} disabled={payments.length === 0}>
               <FileDown className="h-4 w-4" /> Exportar PDF
             </Button>
-            {isTesorero && (
-              <Button variant="outline" className="gap-2" onClick={() => setImportOpen(true)}>
+            <Button variant="outline" className="gap-2" onClick={handleExportCSV} disabled={payments.length === 0}>
+              <Download className="h-4 w-4" /> Exportar CSV
+            </Button>
+            {canManage && (
+              <Button variant="outline" className="gap-2" onClick={() => { setImportPreviewRows([]); setImportOpen(true); }}>
                 <Upload className="h-4 w-4" /> Importar pagos
+              </Button>
+            )}
+            {isAdmin && (
+              <Button variant="outline" className="gap-2 text-destructive hover:text-destructive border-destructive/40 hover:border-destructive" onClick={() => setDeleteAllOpen(true)}>
+                <Trash2 className="h-4 w-4" /> Eliminar todos
               </Button>
             )}
           </div>
@@ -719,29 +814,71 @@ export default function AdminDues() {
       </div>
 
       {/* Import payments dialog */}
-      <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="sm:max-w-lg">
+      <Dialog open={importOpen} onOpenChange={v => { setImportOpen(v); if (!v) setImportPreviewRows([]); }}>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="font-serif">Importar pagos</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-1">
-              <Label>Lista de pagos <span className="text-muted-foreground text-xs">(email,mes,ano,fecha_pago,notas)</span></Label>
-              <Textarea
-                rows={8}
-                placeholder={`juan@email.com,3,2026,2026-03-10\nana@email.com,3,2026,2026-03-12,Recibo #45`}
-                value={importText}
-                onChange={e => setImportText(e.target.value)}
-                className="font-mono text-sm"
-              />
-              <p className="text-xs text-muted-foreground">
-                El mes debe ser un numero (1-12). La fecha es opcional (se usa la fecha actual). Los roles exentos se omiten automaticamente.
-              </p>
+            {/* Format info */}
+            <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
+              <p className="font-semibold text-foreground">Formato del archivo CSV</p>
+              <p>Columnas: <code className="bg-muted rounded px-1">Email, Mes, Año, Fecha de pago, Notas</code></p>
+              <p>Ejemplo: <code className="bg-muted rounded px-1">juan@email.com,3,2026,2026-03-10,Recibo #45</code></p>
+              <p>La primera fila puede ser encabezado (se omite). Fecha y notas son opcionales.</p>
             </div>
+
+            {/* File picker */}
+            <div className="flex items-center gap-3">
+              <input
+                ref={importFileRef}
+                type="file"
+                accept=".csv,.txt"
+                className="hidden"
+                onChange={handleImportFileChange}
+              />
+              <Button variant="outline" className="gap-2" onClick={() => importFileRef.current?.click()}>
+                <Upload className="h-4 w-4" /> Seleccionar archivo CSV
+              </Button>
+              {importPreviewRows.length > 0 && (
+                <span className="text-sm text-muted-foreground">{importPreviewRows.length} registros detectados</span>
+              )}
+            </div>
+
+            {/* Preview table */}
+            {importPreviewRows.length > 0 && (
+              <div className="rounded-lg border overflow-hidden">
+                <div className="max-h-64 overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Email</TableHead>
+                        <TableHead className="text-xs">Mes</TableHead>
+                        <TableHead className="text-xs">Año</TableHead>
+                        <TableHead className="text-xs">Fecha pago</TableHead>
+                        <TableHead className="text-xs">Notas</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {importPreviewRows.map((r, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-xs">{r.email}</TableCell>
+                          <TableCell className="text-xs">{MONTHS_SHORT[r.month - 1] ?? r.month}</TableCell>
+                          <TableCell className="text-xs">{r.year}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{r.paidAt || '—'}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">{r.notes || '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setImportOpen(false)}>Cancelar</Button>
-              <Button onClick={handleImportPayments} disabled={!importText.trim() || importLoading}>
-                {importLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importando...</> : 'Importar'}
+              <Button onClick={handleImportPayments} disabled={importPreviewRows.length === 0 || importLoading}>
+                {importLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importando...</> : `Importar ${importPreviewRows.length > 0 ? importPreviewRows.length + ' registros' : ''}`}
               </Button>
             </div>
           </div>
@@ -889,6 +1026,29 @@ export default function AdminDues() {
               </Button>
               <Button onClick={handlePromoSubmit} disabled={promoSaving}>
                 {promoSaving ? 'Guardando...' : editingPromo ? 'Guardar cambios' : 'Crear promocion'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete ALL payments confirmation */}
+      <Dialog open={deleteAllOpen} onOpenChange={setDeleteAllOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" /> Eliminar todos los pagos
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-4 text-sm text-destructive space-y-2">
+              <p className="font-semibold">Esta accion es irreversible.</p>
+              <p>Se eliminaran <strong>todos</strong> los registros de pago de todos los meses y años. Utiliza esta opcion solo para reiniciar el sistema desde cero.</p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeleteAllOpen(false)} disabled={deleteAllLoading}>Cancelar</Button>
+              <Button variant="destructive" onClick={handleDeleteAll} disabled={deleteAllLoading}>
+                {deleteAllLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Eliminando...</> : 'Eliminar todos los pagos'}
               </Button>
             </div>
           </div>

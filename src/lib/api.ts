@@ -246,4 +246,6 @@ export const duesApi = {
       '/dues/import',
       { method: 'POST', body: JSON.stringify({ payments }) },
     ),
+  deleteAll: () =>
+    request<{ deleted: number }>('/dues/all', { method: 'DELETE' }),
 };
