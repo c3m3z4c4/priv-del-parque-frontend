@@ -287,7 +287,7 @@ export default function AdminUsers() {
   const [importOpen, setImportOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'VECINO' | 'SUPER_ADMIN'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'SUPER_ADMIN' | 'ADMIN' | 'PRESIDENTE' | 'SECRETARIO' | 'TESORERO' | 'VECINO'>('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const { sortCol, sortDir, handleSort } = useSortable('name');
@@ -333,6 +333,9 @@ export default function AdminUsers() {
   const roleBadge = (role: string) => {
     if (role === 'SUPER_ADMIN') return <Badge className="gap-1 bg-purple-600 hover:bg-purple-700"><Star className="h-3 w-3" /> Super Admin</Badge>;
     if (role === 'ADMIN') return <Badge variant="default" className="gap-1"><Shield className="h-3 w-3" /> Admin</Badge>;
+    if (role === 'PRESIDENTE') return <Badge className="gap-1 bg-amber-600 hover:bg-amber-700"><Star className="h-3 w-3" /> Presidente</Badge>;
+    if (role === 'SECRETARIO') return <Badge className="gap-1 bg-sky-600 hover:bg-sky-700"><Shield className="h-3 w-3" /> Secretario</Badge>;
+    if (role === 'TESORERO') return <Badge className="gap-1 bg-emerald-600 hover:bg-emerald-700"><Shield className="h-3 w-3" /> Tesorero</Badge>;
     return <Badge variant="secondary" className="gap-1"><Home className="h-3 w-3" /> Vecino</Badge>;
   };
 
@@ -428,6 +431,9 @@ export default function AdminUsers() {
               <SelectItem value="all">Todos los roles</SelectItem>
               <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
               <SelectItem value="ADMIN">Admin</SelectItem>
+              <SelectItem value="PRESIDENTE">Presidente</SelectItem>
+              <SelectItem value="SECRETARIO">Secretario</SelectItem>
+              <SelectItem value="TESORERO">Tesorero</SelectItem>
               <SelectItem value="VECINO">Vecino</SelectItem>
             </SelectContent>
           </Select>
