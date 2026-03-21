@@ -11,7 +11,6 @@ import { ThemeProvider } from "next-themes";
 import Login from "./pages/Login";
 import VecinoHome from "./pages/vecino/Home";
 import VecinoCalendar from "./pages/vecino/Calendar";
-import VecinoMeetings from "./pages/vecino/Meetings";
 import VecinoEvents from "./pages/vecino/Events";
 import VecinoProfile from "./pages/vecino/Profile";
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -51,7 +50,7 @@ const App = () => (
             {/* Vecino Routes */}
             <Route path="/" element={<RootRedirect />} />
             <Route path="/calendario" element={<ProtectedRoute allowedRoles={['VECINO']}><VecinoCalendar /></ProtectedRoute>} />
-            <Route path="/reuniones" element={<ProtectedRoute allowedRoles={['VECINO']}><VecinoMeetings /></ProtectedRoute>} />
+            <Route path="/reuniones" element={<Navigate to="/" replace />} />
             <Route path="/eventos" element={<ProtectedRoute allowedRoles={['VECINO']}><VecinoEvents /></ProtectedRoute>} />
             <Route path="/perfil" element={<ProtectedRoute allowedRoles={['VECINO']}><VecinoProfile /></ProtectedRoute>} />
             <Route path="/cuotas" element={<ProtectedRoute allowedRoles={['VECINO']}><VecinoDues /></ProtectedRoute>} />

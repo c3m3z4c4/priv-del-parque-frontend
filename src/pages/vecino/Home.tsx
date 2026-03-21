@@ -2,14 +2,14 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { VecinoLayout } from '@/components/layouts/VecinoLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import { useMeetings, useEvents } from '@/hooks/useDataStore';
+import { useEvents } from '@/hooks/useDataStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import {
-  DollarSign, ClipboardList, Clock, MapPin, TreePine,
+  DollarSign, ClipboardList, Clock, TreePine,
   ChevronLeft, ChevronRight, ArrowRight, AlertCircle, CheckCircle2,
 } from 'lucide-react';
 import {
@@ -20,7 +20,7 @@ import {
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { duesApi, projectsApi } from '@/lib/api';
-import type { Meeting, GreenAreaEvent, ProjectStatus } from '@/types';
+import type { GreenAreaEvent, ProjectStatus } from '@/types';
 import { RsvpButtons } from '@/components/RsvpButtons';
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
@@ -38,31 +38,29 @@ const STATUS_BADGE: Record<ProjectStatus, 'default' | 'secondary' | 'outline' | 
   paused:    'destructive',
 };
 
-type CalendarItem =
-  | { type: 'meeting'; data: Meeting }
-  | { type: 'event'; data: GreenAreaEvent };
+type CalendarItem = { type: 'event'; data: GreenAreaEvent };
 
 const WEEK_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
 export default function VecinoHome() {
   const { user } = useAuth();
-  const { meetings } = useMeetings();
   const { events } = useEvents();
 
   const today = new Date();
   const currentMonth = today.getMonth() + 1;
   const currentYear = today.getFullYear();
 
-  // ─── Cuotas ───────────────────────────────────────────────────────────────
+  // ─── Cuotas (solo del usuario actual) ────────────────────────────────────
   const { data: dues = [] } = useQuery({
     queryKey: ['dues'],
     queryFn: duesApi.getAll,
   });
 
-  const thisMonthDue = dues.find(
+  const myDues = dues.filter((d) => d.userId === user?.id);
+  const thisMonthDue = myDues.find(
     (d) => d.month === currentMonth && d.year === currentYear,
   );
-  const pendingCount = dues.filter((d) => d.status === 'pending').length;
+  const pendingCount = myDues.filter((d) => d.status === 'pending').length;
 
   // ─── Proyectos ────────────────────────────────────────────────────────────
   const { data: projects = [] } = useQuery({
@@ -76,16 +74,12 @@ export default function VecinoHome() {
 
   const itemsByDate = useMemo(() => {
     const map = new Map<string, CalendarItem[]>();
-    meetings.forEach((m) => {
-      if (!map.has(m.date)) map.set(m.date, []);
-      map.get(m.date)!.push({ type: 'meeting', data: m });
-    });
     events.forEach((e) => {
       if (!map.has(e.date)) map.set(e.date, []);
       map.get(e.date)!.push({ type: 'event', data: e });
     });
     return map;
-  }, [meetings, events]);
+  }, [events]);
 
   const calendarDays = useMemo(() => {
     const start = startOfWeek(startOfMonth(calMonth), { weekStartsOn: 1 });
@@ -272,7 +266,6 @@ export default function VecinoHome() {
                   {calendarDays.map((day) => {
                     const key = format(day, 'yyyy-MM-dd');
                     const items = itemsByDate.get(key) || [];
-                    const hasMeetings = items.some((i) => i.type === 'meeting');
                     const hasEvents = items.some((i) => i.type === 'event');
                     const isSelected = selectedDate && isSameDay(day, selectedDate);
                     const inMonth = isSameMonth(day, calMonth);
@@ -293,10 +286,9 @@ export default function VecinoHome() {
                         <span className={cn('text-sm font-medium', todayDay && 'font-bold text-primary')}>
                           {format(day, 'd')}
                         </span>
-                        {items.length > 0 && inMonth && (
+                        {hasEvents && inMonth && (
                           <div className="flex gap-0.5">
-                            {hasMeetings && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
-                            {hasEvents && <span className="h-1.5 w-1.5 rounded-full bg-accent" />}
+                            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
                           </div>
                         )}
                       </button>
@@ -305,9 +297,6 @@ export default function VecinoHome() {
                 </div>
                 {/* Leyenda */}
                 <div className="mt-4 flex items-center gap-4 border-t pt-3">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span className="h-2.5 w-2.5 rounded-full bg-primary" /> Reuniones
-                  </div>
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <span className="h-2.5 w-2.5 rounded-full bg-accent" /> Eventos
                   </div>
@@ -334,21 +323,11 @@ export default function VecinoHome() {
                   <div className="space-y-3">
                     {selectedItems.map((item) => (
                       <div
-                        key={`${item.type}-${item.data.id}`}
-                        className={cn(
-                          'rounded-lg border p-3',
-                          item.type === 'meeting'
-                            ? 'border-primary/20 bg-primary/5'
-                            : 'border-accent/20 bg-accent/5',
-                        )}
+                        key={`event-${item.data.id}`}
+                        className="rounded-lg border border-accent/20 bg-accent/5 p-3"
                       >
                         <div className="mb-1.5">
-                          <Badge
-                            variant={item.type === 'meeting' ? 'default' : 'secondary'}
-                            className="text-[10px]"
-                          >
-                            {item.type === 'meeting' ? 'Reunión' : 'Evento'}
-                          </Badge>
+                          <Badge variant="secondary" className="text-[10px]">Evento</Badge>
                         </div>
                         <h4 className="text-sm font-medium">{item.data.title}</h4>
                         <div className="mt-2 space-y-1">
@@ -357,18 +336,10 @@ export default function VecinoHome() {
                             {item.data.startTime} hrs
                             {item.data.endTime && ` – ${item.data.endTime} hrs`}
                           </div>
-                          {item.type === 'meeting' && (
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <MapPin className="h-3 w-3" />
-                              {(item.data as Meeting).location}
-                            </div>
-                          )}
-                          {item.type === 'event' && (
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <TreePine className="h-3 w-3" />
-                              {(item.data as GreenAreaEvent).greenArea}
-                            </div>
-                          )}
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <TreePine className="h-3 w-3" />
+                            {(item.data as GreenAreaEvent).greenArea}
+                          </div>
                         </div>
                         {item.data.description && (
                           <p className="mt-2 text-xs text-muted-foreground leading-relaxed line-clamp-2">
@@ -376,7 +347,7 @@ export default function VecinoHome() {
                           </p>
                         )}
                         <div className="mt-3 border-t pt-2">
-                          <RsvpButtons targetType={item.type} targetId={item.data.id} compact />
+                          <RsvpButtons targetType="event" targetId={item.data.id} compact />
                         </div>
                       </div>
                     ))}

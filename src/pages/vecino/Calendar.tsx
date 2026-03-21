@@ -1,28 +1,25 @@
 import { useState, useMemo } from 'react';
 import { VecinoLayout } from '@/components/layouts/VecinoLayout';
-import { useMeetings, useEvents } from '@/hooks/useDataStore';
+import { useEvents } from '@/hooks/useDataStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarIcon, TreePine, Clock, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar as CalendarIcon, TreePine, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay,
-  addMonths, subMonths, startOfWeek, endOfWeek, parseISO, isToday,
+  addMonths, subMonths, startOfWeek, endOfWeek, isToday,
   addWeeks, subWeeks, addYears, subYears, startOfYear, eachMonthOfInterval,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { Meeting, GreenAreaEvent } from '@/types';
+import { GreenAreaEvent } from '@/types';
 import { RsvpButtons } from '@/components/RsvpButtons';
 
-type CalendarItem =
-  | { type: 'meeting'; data: Meeting }
-  | { type: 'event'; data: GreenAreaEvent };
+type CalendarItem = { type: 'event'; data: GreenAreaEvent };
 
 type ViewMode = 'monthly' | 'weekly' | 'annual';
 
 export default function VecinoCalendar() {
-  const { meetings } = useMeetings();
   const { events } = useEvents();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -33,18 +30,13 @@ export default function VecinoCalendar() {
   // Build a map of date -> items
   const itemsByDate = useMemo(() => {
     const map = new Map<string, CalendarItem[]>();
-    meetings.forEach(m => {
-      const key = m.date;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push({ type: 'meeting', data: m });
-    });
     events.forEach(e => {
       const key = e.date;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push({ type: 'event', data: e });
     });
     return map;
-  }, [meetings, events]);
+  }, [events]);
 
   // Monthly calendar grid days
   const calendarDays = useMemo(() => {
@@ -94,16 +86,11 @@ export default function VecinoCalendar() {
           <div className="space-y-3">
             {selectedItems.map(item => (
               <div
-                key={`${item.type}-${item.data.id}`}
-                className={cn(
-                  "rounded-lg border p-3 transition-colors",
-                  item.type === 'meeting' ? "border-primary/20 bg-primary/5" : "border-accent/20 bg-accent/5"
-                )}
+                key={`event-${item.data.id}`}
+                className="rounded-lg border border-accent/20 bg-accent/5 p-3 transition-colors"
               >
                 <div className="mb-1.5 flex items-center gap-2">
-                  <Badge variant={item.type === 'meeting' ? 'default' : 'secondary'} className="text-[10px]">
-                    {item.type === 'meeting' ? 'Reunion' : 'Evento'}
-                  </Badge>
+                  <Badge variant="secondary" className="text-[10px]">Evento</Badge>
                 </div>
                 <h4 className="font-medium text-sm">{item.data.title}</h4>
                 <div className="mt-2 space-y-1">
@@ -112,24 +99,16 @@ export default function VecinoCalendar() {
                     {item.data.startTime} hrs
                     {item.data.endTime && ` - ${item.data.endTime} hrs`}
                   </div>
-                  {item.type === 'meeting' && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <MapPin className="h-3 w-3" />
-                      {(item.data as Meeting).location}
-                    </div>
-                  )}
-                  {item.type === 'event' && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <TreePine className="h-3 w-3" />
-                      {(item.data as GreenAreaEvent).greenArea}
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <TreePine className="h-3 w-3" />
+                    {(item.data as GreenAreaEvent).greenArea}
+                  </div>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
                   {item.data.description}
                 </p>
                 <div className="mt-3 border-t pt-2">
-                  <RsvpButtons targetType={item.type} targetId={item.data.id} compact />
+                  <RsvpButtons targetType="event" targetId={item.data.id} compact />
                 </div>
               </div>
             ))}
@@ -166,8 +145,7 @@ export default function VecinoCalendar() {
           {calendarDays.map(day => {
             const dateKey = format(day, 'yyyy-MM-dd');
             const items = itemsByDate.get(dateKey) || [];
-            const hasMeetings = items.some(i => i.type === 'meeting');
-            const hasEvents = items.some(i => i.type === 'event');
+            const hasEvents = items.length > 0;
             const isSelected = selectedDate && isSameDay(day, selectedDate);
             const isCurrentMonth = isSameMonth(day, currentMonth);
             const today = isToday(day);
@@ -187,10 +165,9 @@ export default function VecinoCalendar() {
                 <span className={cn("text-sm font-medium", today && "text-primary font-bold")}>
                   {format(day, 'd')}
                 </span>
-                {items.length > 0 && (
+                {hasEvents && (
                   <div className="flex gap-0.5">
-                    {hasMeetings && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
-                    {hasEvents && <span className="h-1.5 w-1.5 rounded-full bg-accent" />}
+                    <span className="h-1.5 w-1.5 rounded-full bg-accent" />
                   </div>
                 )}
               </button>
@@ -198,9 +175,6 @@ export default function VecinoCalendar() {
           })}
         </div>
         <div className="mt-4 flex items-center gap-4 border-t pt-3">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="h-2.5 w-2.5 rounded-full bg-primary" /> Reuniones
-          </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="h-2.5 w-2.5 rounded-full bg-accent" /> Eventos
           </div>
@@ -254,11 +228,8 @@ export default function VecinoCalendar() {
                 <div className="flex-1 space-y-1">
                   {items.map(item => (
                     <div
-                      key={`${item.type}-${item.data.id}`}
-                      className={cn(
-                        "rounded px-1.5 py-0.5 text-[10px] truncate",
-                        item.type === 'meeting' ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"
-                      )}
+                      key={`event-${item.data.id}`}
+                      className="rounded px-1.5 py-0.5 text-[10px] truncate bg-accent/10 text-accent"
                     >
                       {item.data.startTime} {item.data.title}
                     </div>
@@ -308,8 +279,7 @@ export default function VecinoCalendar() {
                   {days.map(day => {
                     const dateKey = format(day, 'yyyy-MM-dd');
                     const items = itemsByDate.get(dateKey) || [];
-                    const hasMeetings = items.some(i => i.type === 'meeting');
-                    const hasEvents = items.some(i => i.type === 'event');
+                    const hasEvents = items.length > 0;
                     const inMonth = isSameMonth(day, month);
                     const today = isToday(day);
 
@@ -325,10 +295,9 @@ export default function VecinoCalendar() {
                         )}
                       >
                         <span>{format(day, 'd')}</span>
-                        {items.length > 0 && inMonth && (
+                        {hasEvents && inMonth && (
                           <div className="flex gap-px">
-                            {hasMeetings && <span className="h-1 w-1 rounded-full bg-primary" />}
-                            {hasEvents && <span className="h-1 w-1 rounded-full bg-accent" />}
+                            <span className="h-1 w-1 rounded-full bg-accent" />
                           </div>
                         )}
                       </button>
@@ -349,7 +318,7 @@ export default function VecinoCalendar() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="font-serif text-3xl font-bold text-foreground">Calendario</h1>
-            <p className="mt-1 text-muted-foreground">Vista de reuniones y eventos</p>
+            <p className="mt-1 text-muted-foreground">Vista de eventos de la comunidad</p>
           </div>
           <div className="flex gap-1 rounded-lg border p-1">
             {(['monthly', 'weekly', 'annual'] as ViewMode[]).map(mode => (

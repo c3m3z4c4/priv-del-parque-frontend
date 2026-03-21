@@ -1,9 +1,8 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { 
+import {
   Home,
-  Calendar,
   CalendarDays,
   TreePine,
   DollarSign,
@@ -21,7 +20,6 @@ import { NotificationBell } from '@/components/NotificationBell';
 const vecinoLinks = [
   { to: '/', label: 'Inicio', icon: Home },
   { to: '/calendario', label: 'Calendario', icon: CalendarDays },
-  { to: '/reuniones', label: 'Reuniones', icon: Calendar },
   { to: '/eventos', label: 'Eventos', icon: TreePine },
   { to: '/cuotas', label: 'Cuotas', icon: DollarSign },
   { to: '/proyectos', label: 'Proyectos', icon: ClipboardList },
