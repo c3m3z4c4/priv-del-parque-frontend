@@ -3,10 +3,13 @@ import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { useMeetings, useEvents, useHouses, useUsers } from '@/hooks/useDataStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, TreePine, Home, Users, TrendingUp, Clock, DollarSign, CheckCircle2, FolderKanban } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Calendar, TreePine, Home, Users, TrendingUp, Clock, DollarSign, CheckCircle2, FolderKanban, DatabaseBackup, Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { duesApi, projectsApi } from '@/lib/api';
+import { duesApi, projectsApi, backupApi } from '@/lib/api';
 import { DuesSummary, Project } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -18,10 +21,25 @@ export default function AdminDashboard() {
   const { events } = useEvents();
   const { houses } = useHouses();
   const { users } = useUsers();
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   const now = new Date();
   const [duesSummary, setDuesSummary] = useState<DuesSummary | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [backupLoading, setBackupLoading] = useState(false);
+
+  const handleBackup = async () => {
+    setBackupLoading(true);
+    try {
+      await backupApi.download();
+      toast({ title: 'Respaldo generado', description: 'El archivo SQL se descargó correctamente.' });
+    } catch (err: any) {
+      toast({ title: 'Error al generar respaldo', description: err.message, variant: 'destructive' });
+    } finally {
+      setBackupLoading(false);
+    }
+  };
 
   useEffect(() => {
     duesApi.getSummary(now.getMonth() + 1, now.getFullYear())
@@ -94,9 +112,18 @@ export default function AdminDashboard() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="font-serif text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">Resumen general del fraccionamiento</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="font-serif text-3xl font-bold">Dashboard</h1>
+            <p className="text-muted-foreground">Resumen general del fraccionamiento</p>
+          </div>
+          {user?.role === 'SUPER_ADMIN' && (
+            <Button variant="outline" className="gap-2 self-start" onClick={handleBackup} disabled={backupLoading}>
+              {backupLoading
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando...</>
+                : <><DatabaseBackup className="h-4 w-4" /> Respaldar DB</>}
+            </Button>
+          )}
         </div>
 
         {/* Stat Cards */}

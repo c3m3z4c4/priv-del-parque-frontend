@@ -249,3 +249,27 @@ export const duesApi = {
   deleteAll: () =>
     request<{ deleted: number }>('/dues/all', { method: 'DELETE' }),
 };
+
+// ─── Backup ───────────────────────────────────────────────────────────────────
+export const backupApi = {
+  download: async (): Promise<void> => {
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}/backup/download`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as any).message || `Error ${res.status}`);
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const match = disposition.match(/filename="([^"]+)"/);
+    const filename = match?.[1] ?? `backup_${new Date().toISOString().slice(0, 10)}.sql`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+};

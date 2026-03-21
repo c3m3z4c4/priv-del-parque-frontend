@@ -324,9 +324,10 @@ export default function AdminUsers() {
     }
   };
 
-  const getHouseNumber = (houseId?: string) => {
-    if (!houseId) return '—';
-    return houses.find(h => h.id === houseId)?.houseNumber || '—';
+  const getHouseInfo = (houseId?: string) => {
+    if (!houseId) return { number: '—', address: '' };
+    const h = houses.find(h => h.id === houseId);
+    return { number: h?.houseNumber || '—', address: h?.address || '' };
   };
 
   const roleBadge = (role: string) => {
@@ -385,14 +386,18 @@ export default function AdminUsers() {
                 title: 'Directorio de Usuarios',
                 subtitle: `Reporte de residentes — ${filtered.length} usuarios`,
                 logoUrl: logo,
-                columns: ['Nombre', 'Email', 'Rol', 'Teléfono', 'Casa'],
-                rows: filtered.map(u => [
-                  `${u.name} ${u.lastName}`,
-                  u.email,
-                  roleLabel(u.role),
-                  u.phone || POR_LLENAR,
-                  u.houseId ? (houseMap[u.houseId] || POR_LLENAR) : POR_LLENAR,
-                ]),
+                columns: ['Nombre', 'Email', 'Rol', 'Teléfono', 'Casa', 'Calle'],
+                rows: filtered.map(u => {
+                  const house = u.houseId ? houses.find(h => h.id === u.houseId) : undefined;
+                  return [
+                    `${u.name} ${u.lastName}`,
+                    u.email,
+                    roleLabel(u.role),
+                    u.phone || POR_LLENAR,
+                    house?.houseNumber || POR_LLENAR,
+                    house?.address || POR_LLENAR,
+                  ];
+                }),
               });
             }} disabled={filtered.length === 0}>
               <FileText className="h-4 w-4" /> Exportar PDF
@@ -465,7 +470,9 @@ export default function AdminUsers() {
                           <TableCell className="hidden sm:table-cell text-muted-foreground">{u.email}</TableCell>
                           <TableCell>{roleBadge(u.role)}</TableCell>
                           <TableCell className="hidden md:table-cell text-muted-foreground">{u.phone || '—'}</TableCell>
-                          <TableCell className="hidden md:table-cell">{getHouseNumber(u.houseId)}</TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            {(() => { const h = getHouseInfo(u.houseId); return h.address ? <span>{h.number} <span className="text-muted-foreground text-xs">· {h.address}</span></span> : h.number; })()}
+                          </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1">
                               <Button variant="ghost" size="icon" onClick={() => handleEdit(u)} title="Editar">
