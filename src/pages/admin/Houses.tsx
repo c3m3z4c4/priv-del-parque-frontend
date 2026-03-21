@@ -85,23 +85,64 @@ A-02,Calle del Parque 2
 B-01
 B-02,Av. Principal 10`;
 
+// Parse a CSV line respecting quoted fields
+function parseCSVLine(line: string): string[] {
+  const cols: string[] = [];
+  let cur = '';
+  let inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuote && line[i + 1] === '"') { cur += '"'; i++; }
+      else { inQuote = !inQuote; }
+    } else if (ch === ',' && !inQuote) {
+      cols.push(cur.trim());
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  cols.push(cur.trim());
+  return cols;
+}
+
+interface PreviewRow {
+  houseNumber: string;
+  address?: string;
+  residentEmails: string[];
+  duplicate: boolean;
+}
+
 function ImportHousesDialog({
-  open, onOpenChange, onImported, existingNumbers,
-}: { open: boolean; onOpenChange: (v: boolean) => void; onImported: () => void; existingNumbers: Set<string> }) {
+  open, onOpenChange, onImported, existingNumbers, users,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onImported: () => void;
+  existingNumbers: Set<string>;
+  users: import('@/types').User[];
+}) {
   const { toast } = useToast();
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const preview = useMemo(() => {
+  const preview = useMemo<PreviewRow[]>(() => {
     return text
       .split('\n')
       .map(line => line.trim())
       .filter(Boolean)
       .map(line => {
-        const [houseNumber, ...rest] = line.split(',');
-        const num = houseNumber.trim();
-        return { houseNumber: num, address: rest.join(',').trim() || undefined, duplicate: existingNumbers.has(num) };
+        // Columns: 0=Número, 1=Calle, 2=Estado, 3=Registro, 4=Residentes, 5=Emails
+        const cols = parseCSVLine(line);
+        const houseNumber = cols[0] ?? '';
+        const address = cols[1] || undefined;
+        // Col 5 = semicolon-separated emails (from our own CSV export)
+        const residentEmails = (cols[5] ?? '')
+          .split(';')
+          .map(e => e.trim())
+          .filter(Boolean);
+        return { houseNumber, address, residentEmails, duplicate: existingNumbers.has(houseNumber) };
       })
       .filter(h => h.houseNumber);
   }, [text, existingNumbers]);
@@ -112,27 +153,47 @@ function ImportHousesDialog({
     const reader = new FileReader();
     reader.onload = ev => {
       const content = (ev.target?.result as string) ?? '';
-      // Strip BOM if present and remove header row if it looks like one
       const cleaned = content.replace(/^\uFEFF/, '');
       const lines = cleaned.split('\n').map(l => l.trim()).filter(Boolean);
-      // Skip header row if first cell is not a valid house number pattern
-      const firstCell = lines[0]?.split(',')[0]?.trim().toLowerCase() ?? '';
-      const isHeader = ['número', 'numero', 'houseNumber', 'house', 'casa'].some(k => firstCell.includes(k));
-      const dataLines = isHeader ? lines.slice(1) : lines;
-      setText(dataLines.join('\n'));
+      const firstCell = parseCSVLine(lines[0] ?? '')[0]?.toLowerCase() ?? '';
+      const isHeader = ['número', 'numero', 'housenuaber', 'house', 'casa'].some(k => firstCell.includes(k));
+      setText((isHeader ? lines.slice(1) : lines).join('\n'));
     };
     reader.readAsText(file, 'UTF-8');
     e.target.value = '';
   };
 
   const handleImport = async () => {
-    if (preview.length === 0) return;
+    const newRows = preview.filter(h => !h.duplicate);
+    if (newRows.length === 0) return;
     setLoading(true);
     try {
-      const result = await housesApi.import(preview);
+      // 1. Bulk-create houses
+      const result = await housesApi.import(newRows.map(r => ({ houseNumber: r.houseNumber, address: r.address })));
+
+      // 2. Assign residents for rows that have emails
+      const rowsWithEmails = newRows.filter(r => r.residentEmails.length > 0);
+      if (rowsWithEmails.length > 0) {
+        // Fetch the freshly-created houses to get their IDs
+        const allHouses = await housesApi.getAll();
+        const emailIndex = new Map(users.map(u => [u.email.toLowerCase(), u.id]));
+
+        await Promise.all(
+          rowsWithEmails.map(row => {
+            const house = allHouses.find(h => h.houseNumber === row.houseNumber);
+            if (!house) return Promise.resolve();
+            const userIds = row.residentEmails
+              .map(e => emailIndex.get(e.toLowerCase()))
+              .filter((id): id is string => !!id);
+            if (userIds.length === 0) return Promise.resolve();
+            return housesApi.assignResidents(house.id, userIds);
+          })
+        );
+      }
+
       toast({
         title: 'Importación completada',
-        description: `${result.created} casas creadas, ${result.skipped} omitidas${result.skippedNumbers.length ? ` (${result.skippedNumbers.join(', ')})` : ''}.`,
+        description: `${result.created} casas creadas${result.skipped ? `, ${result.skipped} omitidas` : ''}${rowsWithEmails.length ? `. Residentes asignados.` : ''}.`,
       });
       setText('');
       onOpenChange(false);
@@ -197,6 +258,7 @@ function ImportHousesDialog({
                     <TableRow>
                       <TableHead className="text-xs">Número</TableHead>
                       <TableHead className="text-xs">Calle</TableHead>
+                      <TableHead className="text-xs">Residentes</TableHead>
                       <TableHead className="text-xs">Estado</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -205,6 +267,9 @@ function ImportHousesDialog({
                       <TableRow key={i} className={h.duplicate ? 'opacity-60' : ''}>
                         <TableCell className="text-xs font-medium">{h.houseNumber}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{h.address || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {h.residentEmails.length > 0 ? h.residentEmails.join(', ') : '—'}
+                        </TableCell>
                         <TableCell className="text-xs">
                           {h.duplicate
                             ? <span className="text-amber-600 font-medium">Duplicada</span>
@@ -214,7 +279,7 @@ function ImportHousesDialog({
                     ))}
                     {preview.length > 15 && (
                       <TableRow>
-                        <TableCell colSpan={3} className="text-xs text-muted-foreground text-center">
+                        <TableCell colSpan={4} className="text-xs text-muted-foreground text-center">
                           +{preview.length - 15} más...
                         </TableCell>
                       </TableRow>
@@ -228,9 +293,11 @@ function ImportHousesDialog({
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button onClick={handleImport} disabled={preview.filter(h => !h.duplicate).length === 0 || loading}>
-              {loading
-                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importando...</>
-                : `Importar ${preview.filter(h => !h.duplicate).length} casas nuevas`}
+              {loading ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importando...</>
+              ) : (
+                `Importar ${preview.filter(h => !h.duplicate).length} casas nuevas`
+              )}
             </Button>
           </div>
         </div>
@@ -481,7 +548,7 @@ export default function AdminHouses() {
 
       <HouseFormDialog open={formOpen} onOpenChange={setFormOpen} house={selectedHouse} users={users} onSubmit={handleSubmit} />
       <DeleteHouseDialog open={deleteOpen} onOpenChange={setDeleteOpen} house={selectedHouse} onConfirm={handleDeleteConfirm} />
-      <ImportHousesDialog open={importOpen} onOpenChange={setImportOpen} onImported={refetch} existingNumbers={new Set(houses.map(h => h.houseNumber))} />
+      <ImportHousesDialog open={importOpen} onOpenChange={setImportOpen} onImported={refetch} existingNumbers={new Set(houses.map(h => h.houseNumber))} users={users} />
     </AdminLayout>
   );
 }
