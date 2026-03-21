@@ -117,7 +117,7 @@ export default function AdminDashboard() {
             <h1 className="font-serif text-3xl font-bold">Dashboard</h1>
             <p className="text-muted-foreground">Resumen general del fraccionamiento</p>
           </div>
-          {user?.role === 'SUPER_ADMIN' && (
+          {(user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN') && (
             <Button variant="outline" className="gap-2 self-start" onClick={handleBackup} disabled={backupLoading}>
               {backupLoading
                 ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando...</>
