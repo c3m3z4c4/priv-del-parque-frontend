@@ -155,7 +155,7 @@ export function useUsers() {
     setUsers(prev => prev.filter(u => u.id !== id));
   };
 
-  return { users, isLoading, addUser, updateUser, deleteUser };
+  return { users, isLoading, addUser, updateUser, deleteUser, refetch: load };
 }
 
 // RSVP Hook (API-based)

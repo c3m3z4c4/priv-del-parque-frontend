@@ -70,6 +70,16 @@ export type UpdateUserPayload = Partial<
   Omit<CreateUserPayload, 'password'> & { password?: string; isActive?: boolean }
 >;
 
+export type ImportUserRow = {
+  email: string;
+  name?: string;
+  lastName?: string;
+  phone?: string;
+  role?: string;
+  houseNumber?: string;
+  password?: string;
+};
+
 export const usersApi = {
   getAll: () => request<import('@/types').User[]>('/users'),
   getOne: (id: string) => request<import('@/types').User>(`/users/${id}`),
@@ -85,6 +95,11 @@ export const usersApi = {
     }),
   remove: (id: string) =>
     request<void>(`/users/${id}`, { method: 'DELETE' }),
+  import: (users: ImportUserRow[]) =>
+    request<{ created: number; skipped: number; skippedEmails: string[] }>(
+      '/users/import',
+      { method: 'POST', body: JSON.stringify({ users }) },
+    ),
 };
 
 // ─── Houses ───────────────────────────────────────────────────────────────────
