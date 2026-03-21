@@ -64,11 +64,13 @@ function exportHousesPDF(houses: House[]) {
   const rows = houses.map(h => {
     const residents = h.residents ?? [];
     const names = residents.length > 0 ? residents.map(r => `${r.name} ${r.lastName}`).join(', ') : '—';
+    const emails = residents.length > 0 ? residents.map(r => r.email).join(', ') : '—';
     return [
       h.houseNumber,
       h.address || '—',
       h.status === 'active' ? 'Activa' : 'Inactiva',
       names,
+      emails,
       new Date(h.createdAt).toLocaleDateString('es-MX'),
     ];
   });
@@ -76,7 +78,7 @@ function exportHousesPDF(houses: House[]) {
     title: 'Directorio de Casas',
     subtitle: `Reporte generado — ${houses.length} casas`,
     logoUrl: logo,
-    columns: ['Número', 'Calle', 'Estado', 'Residentes', 'Registro'],
+    columns: ['Número', 'Calle', 'Estado', 'Residentes', 'Correo', 'Registro'],
     rows,
   });
 }
@@ -537,6 +539,7 @@ export default function AdminHouses() {
                         <SortableHead label="Calle" colKey="address" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="hidden sm:table-cell" />
                         <SortableHead label="Estado" colKey="status" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                         <SortableHead label="Residentes" colKey="residents" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                        <TableHead className="hidden lg:table-cell">Correo</TableHead>
                         <SortableHead label="Registro" colKey="createdAt" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="hidden md:table-cell" />
                         <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
@@ -572,6 +575,11 @@ export default function AdminHouses() {
                                   )}
                                 </div>
                               )}
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell text-muted-foreground">
+                              {residents.length > 0
+                                ? residents.map(r => r.email).join(', ')
+                                : '—'}
                             </TableCell>
                             <TableCell className="hidden md:table-cell text-muted-foreground">
                               {new Date(house.createdAt).toLocaleDateString('es-MX')}
