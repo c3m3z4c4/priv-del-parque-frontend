@@ -108,26 +108,34 @@ function parseCSVLine(line: string): string[] {
   return cols;
 }
 
+type RowStatus = 'new' | 'update' | 'skip';
+
 interface PreviewRow {
   houseNumber: string;
   address?: string;
   residentEmails: string[];
-  duplicate: boolean;
+  status: RowStatus;
 }
 
 function ImportHousesDialog({
-  open, onOpenChange, onImported, existingNumbers, users,
+  open, onOpenChange, onImported, houses, users,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onImported: () => void;
-  existingNumbers: Set<string>;
+  houses: House[];
   users: import('@/types').User[];
 }) {
   const { toast } = useToast();
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Index existing houses by number for O(1) lookup
+  const houseIndex = useMemo(
+    () => new Map(houses.map(h => [h.houseNumber, h])),
+    [houses],
+  );
 
   const preview = useMemo<PreviewRow[]>(() => {
     return text
@@ -139,16 +147,23 @@ function ImportHousesDialog({
         const cols = parseCSVLine(line);
         const houseNumber = cols[0] ?? '';
         const address = cols[1] || undefined;
-        // Col 5 = semicolon-separated emails (from our own CSV export)
-        // Filter strictly to valid email-shaped values so "Sin residentes" or "—" are ignored
+        // Col 5 = semicolon-separated emails — filter out non-email strings like "Sin residentes"
         const residentEmails = (cols[5] ?? '')
           .split(';')
           .map(e => e.trim())
           .filter(e => e.includes('@') && e.includes('.'));
-        return { houseNumber, address, residentEmails, duplicate: existingNumbers.has(houseNumber) };
+
+        const existing = houseIndex.get(houseNumber);
+        let status: RowStatus = 'new';
+        if (existing) {
+          const hasResidents = (existing.residents?.length ?? 0) > 0;
+          // Update only if: house exists, no current residents, and CSV has emails to assign
+          status = (!hasResidents && residentEmails.length > 0) ? 'update' : 'skip';
+        }
+        return { houseNumber, address, residentEmails, status };
       })
       .filter(h => h.houseNumber);
-  }, [text, existingNumbers]);
+  }, [text, houseIndex]);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -167,37 +182,61 @@ function ImportHousesDialog({
   };
 
   const handleImport = async () => {
-    const newRows = preview.filter(h => !h.duplicate);
-    if (newRows.length === 0) return;
+    const newRows = preview.filter(r => r.status === 'new');
+    const updateRows = preview.filter(r => r.status === 'update');
+    if (newRows.length === 0 && updateRows.length === 0) return;
     setLoading(true);
     try {
-      // 1. Bulk-create houses
-      const result = await housesApi.import(newRows.map(r => ({ houseNumber: r.houseNumber, address: r.address })));
+      const emailIndex = new Map(users.map(u => [u.email.toLowerCase(), u.id]));
+      let created = 0;
+      let residentsAssigned = 0;
 
-      // 2. Assign residents for rows that have emails
-      const rowsWithEmails = newRows.filter(r => r.residentEmails.length > 0);
-      if (rowsWithEmails.length > 0) {
-        // Fetch the freshly-created houses to get their IDs
-        const allHouses = await housesApi.getAll();
-        const emailIndex = new Map(users.map(u => [u.email.toLowerCase(), u.id]));
+      // 1. Bulk-create new houses
+      if (newRows.length > 0) {
+        const result = await housesApi.import(newRows.map(r => ({ houseNumber: r.houseNumber, address: r.address })));
+        created = result.created;
 
+        // Assign residents to newly created houses that have emails
+        const withEmails = newRows.filter(r => r.residentEmails.length > 0);
+        if (withEmails.length > 0) {
+          const allHouses = await housesApi.getAll();
+          await Promise.all(
+            withEmails.map(row => {
+              const house = allHouses.find(h => h.houseNumber === row.houseNumber);
+              if (!house) return Promise.resolve();
+              const userIds = row.residentEmails
+                .map(e => emailIndex.get(e.toLowerCase()))
+                .filter((id): id is string => !!id);
+              if (userIds.length === 0) return Promise.resolve();
+              residentsAssigned++;
+              return housesApi.assignResidents(house.id, userIds);
+            })
+          );
+        }
+      }
+
+      // 2. Assign residents to existing houses that have no residents yet
+      if (updateRows.length > 0) {
         await Promise.all(
-          rowsWithEmails.map(row => {
-            const house = allHouses.find(h => h.houseNumber === row.houseNumber);
+          updateRows.map(row => {
+            const house = houseIndex.get(row.houseNumber);
             if (!house) return Promise.resolve();
             const userIds = row.residentEmails
               .map(e => emailIndex.get(e.toLowerCase()))
               .filter((id): id is string => !!id);
             if (userIds.length === 0) return Promise.resolve();
+            residentsAssigned++;
             return housesApi.assignResidents(house.id, userIds);
           })
         );
       }
 
-      toast({
-        title: 'Importación completada',
-        description: `${result.created} casas creadas${result.skipped ? `, ${result.skipped} omitidas` : ''}${rowsWithEmails.length ? `. Residentes asignados.` : ''}.`,
-      });
+      const parts: string[] = [];
+      if (created > 0) parts.push(`${created} casas creadas`);
+      if (updateRows.length > 0) parts.push(`${updateRows.length} casas actualizadas`);
+      if (residentsAssigned > 0) parts.push(`${residentsAssigned} residentes asignados`);
+
+      toast({ title: 'Importación completada', description: parts.join(', ') + '.' });
       setText('');
       onOpenChange(false);
       onImported();
@@ -245,13 +284,14 @@ function ImportHousesDialog({
                   Vista previa — {preview.length} casas
                 </p>
                 <div className="flex gap-3 text-xs">
-                  <span className="text-green-700 font-medium">
-                    {preview.filter(h => !h.duplicate).length} nuevas
-                  </span>
-                  {preview.some(h => h.duplicate) && (
-                    <span className="text-amber-600 font-medium">
-                      {preview.filter(h => h.duplicate).length} duplicadas
-                    </span>
+                  {preview.some(h => h.status === 'new') && (
+                    <span className="text-green-700 font-medium">{preview.filter(h => h.status === 'new').length} nuevas</span>
+                  )}
+                  {preview.some(h => h.status === 'update') && (
+                    <span className="text-blue-600 font-medium">{preview.filter(h => h.status === 'update').length} actualizarán</span>
+                  )}
+                  {preview.some(h => h.status === 'skip') && (
+                    <span className="text-muted-foreground font-medium">{preview.filter(h => h.status === 'skip').length} omitidas</span>
                   )}
                 </div>
               </div>
@@ -261,22 +301,22 @@ function ImportHousesDialog({
                     <TableRow>
                       <TableHead className="text-xs">Número</TableHead>
                       <TableHead className="text-xs">Calle</TableHead>
-                      <TableHead className="text-xs">Residentes</TableHead>
+                      <TableHead className="text-xs">Email residente</TableHead>
                       <TableHead className="text-xs">Estado</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {preview.slice(0, 15).map((h, i) => (
-                      <TableRow key={i} className={h.duplicate ? 'opacity-60' : ''}>
+                      <TableRow key={i} className={h.status === 'skip' ? 'opacity-50' : ''}>
                         <TableCell className="text-xs font-medium">{h.houseNumber}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{h.address || '—'}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {h.residentEmails.length > 0 ? h.residentEmails.join(', ') : '—'}
                         </TableCell>
-                        <TableCell className="text-xs">
-                          {h.duplicate
-                            ? <span className="text-amber-600 font-medium">Duplicada</span>
-                            : <span className="text-green-700 font-medium">Nueva</span>}
+                        <TableCell className="text-xs font-medium">
+                          {h.status === 'new' && <span className="text-green-700">Nueva</span>}
+                          {h.status === 'update' && <span className="text-blue-600">Actualizar residente</span>}
+                          {h.status === 'skip' && <span className="text-muted-foreground">Omitida</span>}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -295,12 +335,20 @@ function ImportHousesDialog({
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button onClick={handleImport} disabled={preview.filter(h => !h.duplicate).length === 0 || loading}>
+            <Button
+              onClick={handleImport}
+              disabled={(preview.filter(r => r.status === 'new').length + preview.filter(r => r.status === 'update').length) === 0 || loading}
+            >
               {loading ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importando...</>
-              ) : (
-                `Importar ${preview.filter(h => !h.duplicate).length} casas nuevas`
-              )}
+              ) : (() => {
+                const n = preview.filter(r => r.status === 'new').length;
+                const u = preview.filter(r => r.status === 'update').length;
+                const parts = [];
+                if (n > 0) parts.push(`${n} nuevas`);
+                if (u > 0) parts.push(`actualizar ${u}`);
+                return `Importar (${parts.join(' + ')})`;
+              })()}
             </Button>
           </div>
         </div>
@@ -557,7 +605,7 @@ export default function AdminHouses() {
 
       <HouseFormDialog open={formOpen} onOpenChange={setFormOpen} house={selectedHouse} users={users} onSubmit={handleSubmit} />
       <DeleteHouseDialog open={deleteOpen} onOpenChange={setDeleteOpen} house={selectedHouse} onConfirm={handleDeleteConfirm} />
-      <ImportHousesDialog open={importOpen} onOpenChange={setImportOpen} onImported={refetch} existingNumbers={new Set(houses.map(h => h.houseNumber))} users={users} />
+      <ImportHousesDialog open={importOpen} onOpenChange={setImportOpen} onImported={refetch} houses={houses} users={users} />
     </AdminLayout>
   );
 }
