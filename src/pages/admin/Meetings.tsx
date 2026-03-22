@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Plus, Pencil, Trash2, Calendar, MapPin, Clock, Loader2, Search, Download, FileText, Users, Mail, ScrollText, Ban, CalendarClock } from 'lucide-react';
+import { Plus, Pencil, Trash2, Calendar, MapPin, Clock, Loader2, Search, Download, FileText, Users, Mail, ScrollText, Ban, CalendarClock, ClipboardList } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
@@ -26,6 +26,7 @@ import { downloadConvocatoria, downloadMinuta } from '@/lib/pdfMeetings';
 import { SendInvitationDialog } from '@/components/admin/SendInvitationDialog';
 import { CancelDialog } from '@/components/admin/CancelDialog';
 import { PostponeDialog } from '@/components/admin/PostponeDialog';
+import { MinutaFormDialog } from '@/components/admin/MinutaFormDialog';
 
 export default function AdminMeetings() {
   const { meetings, isLoading, addMeeting, updateMeeting, deleteMeeting, cancelMeeting, postponeMeeting } = useMeetings();
@@ -37,6 +38,7 @@ export default function AdminMeetings() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [postponeOpen, setPostponeOpen] = useState(false);
+  const [minutaOpen, setMinutaOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'upcoming' | 'past'>('all');
@@ -74,6 +76,18 @@ export default function AdminMeetings() {
 
   const handleCancel = (meeting: Meeting) => { setSelectedMeeting(meeting); setCancelOpen(true); };
   const handlePostpone = (meeting: Meeting) => { setSelectedMeeting(meeting); setPostponeOpen(true); };
+  const handleMinuta = (meeting: Meeting) => { setSelectedMeeting(meeting); setMinutaOpen(true); };
+
+  const handleMinutaSubmit = async (data: { minutes?: string; minutesAgreements?: string; minutesResponsibles?: string; minutesClosingTime?: string }) => {
+    if (!selectedMeeting) return;
+    try {
+      await updateMeeting(selectedMeeting.id, data);
+      toast({ title: 'Minuta guardada', description: 'Los datos de la minuta fueron guardados correctamente.' });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message || 'No se pudo guardar la minuta.', variant: 'destructive' });
+      throw e;
+    }
+  };
 
   const handleConfirmCancel = async (reason?: string) => {
     if (!selectedMeeting) return;
@@ -257,8 +271,8 @@ export default function AdminMeetings() {
                               )}
                             </TableCell>
                             <TableCell>
-                              {meeting.minutes ? (
-                                <span className="flex items-center gap-1 text-xs text-primary">
+                              {(meeting.minutes || meeting.minutesAgreements || meeting.minutesResponsibles) ? (
+                                <span className="flex items-center gap-1 text-xs text-primary cursor-pointer" onClick={() => handleMinuta(meeting)}>
                                   <FileText className="h-3.5 w-3.5" /> Sí
                                 </span>
                               ) : (
@@ -296,6 +310,14 @@ export default function AdminMeetings() {
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>Enviar convocatoria por correo</TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button variant="ghost" size="icon" onClick={() => handleMinuta(meeting)} title="Registrar minuta" className={meeting.minutes || meeting.minutesAgreements ? 'text-primary' : ''}>
+                                        <ClipboardList className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{meeting.minutes || meeting.minutesAgreements ? 'Editar minuta' : 'Registrar minuta'}</TooltipContent>
                                   </Tooltip>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -370,6 +392,12 @@ export default function AdminMeetings() {
         meeting={selectedMeeting}
         open={inviteOpen}
         onOpenChange={setInviteOpen}
+      />
+      <MinutaFormDialog
+        open={minutaOpen}
+        onOpenChange={setMinutaOpen}
+        meeting={selectedMeeting}
+        onSubmit={handleMinutaSubmit}
       />
       <CancelDialog
         open={cancelOpen}

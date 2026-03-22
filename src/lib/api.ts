@@ -141,7 +141,8 @@ export const housesApi = {
 // ─── Meetings ─────────────────────────────────────────────────────────────────
 export type CreateMeetingPayload = {
   title: string; description?: string; location: string;
-  date: string; startTime: string; endTime?: string; minutes?: string;
+  date: string; startTime: string; endTime?: string;
+  minutes?: string; minutesAgreements?: string; minutesResponsibles?: string; minutesClosingTime?: string;
 };
 export const meetingsApi = {
   getAll: () => request<import('@/types').Meeting[]>('/meetings'),
@@ -224,7 +225,10 @@ export const promotionsApi = {
 
 // ─── RSVPs ───────────────────────────────────────────────────────────────────
 export type RsvpWithUser = import('@/types').Rsvp & {
-  user?: { id: string; name: string; lastName: string; email: string; houseId?: string };
+  user?: {
+    id: string; name: string; lastName: string; email: string; houseId?: string;
+    house?: { houseNumber: string; address?: string };
+  };
 };
 
 export const rsvpsApi = {

@@ -185,15 +185,38 @@ export async function downloadMinuta(meeting: Meeting, attendees: RsvpWithUser[]
   const monthLong = format(date, 'MMMM', { locale: es });
   const time12 = meeting.startTime ? formatTime12h(meeting.startTime) : '';
 
-  const logoData = await loadBase64(logoSrc);
+  const [logoData, logoGray] = await Promise.all([
+    loadBase64(logoSrc),
+    loadGrayscaleBase64(logoSrc),
+  ]);
+
+  const wmW = 155; const wmH = 125;
+  const wmX = (pageW - wmW) / 2;
+  const wmY = (pageH - wmH) / 2;
+
+  function drawWatermark() {
+    const wm = logoGray || logoData;
+    if (!wm) return;
+    doc.saveGraphicsState();
+    doc.setGState(new GState({ opacity: logoGray ? 0.12 : 0.06 }));
+    doc.addImage(wm, 'PNG', wmX, wmY, wmW, wmH);
+    doc.restoreGraphicsState();
+  }
+
+  // First page watermark
+  drawWatermark();
+
+  function addNewPage(): number {
+    doc.addPage();
+    drawWatermark();
+    if (logoData) doc.addImage(logoData, 'PNG', mL, 10, 28, 22);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    return 40;
+  }
 
   function checkPage(cy: number, needed = 14): number {
-    if (cy + needed > pageH - 20) {
-      doc.addPage();
-      // Logo top-left on new page
-      if (logoData) doc.addImage(logoData, 'PNG', mL, 10, 28, 22);
-      return 40;
-    }
+    if (cy + needed > pageH - 20) return addNewPage();
     return cy;
   }
 
@@ -203,7 +226,34 @@ export async function downloadMinuta(meeting: Meeting, attendees: RsvpWithUser[]
     doc.setFontSize(11);
     doc.text(title, mL, cy);
     doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
     return cy + 6;
+  }
+
+  function bulletLines(text: string, cy: number, indent = 8): number {
+    const lines = text.split('\n').filter((l) => l.trim());
+    for (const line of lines) {
+      cy = checkPage(cy, 7);
+      const clean = line.trim().replace(/^[•\-\*]\s*/, '');
+      const wrapped = doc.splitTextToSize(`\u2022 ${clean}`, textW - indent);
+      doc.text(wrapped, mL + indent, cy);
+      cy += wrapped.length * 5.5 + 2;
+    }
+    return cy;
+  }
+
+  function numberedLines(text: string, cy: number, indent = 8): number {
+    const lines = text.split('\n').filter((l) => l.trim());
+    let n = 1;
+    for (const line of lines) {
+      cy = checkPage(cy, 7);
+      const clean = line.trim().replace(/^\d+[.)]\s*/, '');
+      const wrapped = doc.splitTextToSize(`${n}. ${clean}`, textW - indent);
+      doc.text(wrapped, mL + indent, cy);
+      cy += wrapped.length * 5.5 + 1;
+      n++;
+    }
+    return cy;
   }
 
   // ── Top-left logo ────────────────────────────────────────────────────────
@@ -216,12 +266,10 @@ export async function downloadMinuta(meeting: Meeting, attendees: RsvpWithUser[]
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
   doc.text('ASAMBLEA VECINAL ORDINARIA.', pageW / 2, y, { align: 'center' });
-
   y += 6;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.text('FRACCIONAMIENTO \u201cPRIVADAS DEL PARQUE\u201d', pageW / 2, y, { align: 'center' });
-
   y += 6;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
@@ -251,16 +299,13 @@ export async function downloadMinuta(meeting: Meeting, attendees: RsvpWithUser[]
     `Habi\u00e9ndose emitido la convocatoria correspondiente, los acuerdos tomados en la ` +
     `presente asamblea ser\u00e1n obligatorios para todos los colonos.`;
   const encLines = doc.splitTextToSize(enc, textW);
-  doc.text(encLines, mL, y, { align: 'justify' });
+  doc.text(encLines, mL, y, { maxWidth: textW });
   y += encLines.length * 5.8 + 8;
 
   // ── 2) Lista de asistencia ────────────────────────────────────────────────
-  y = sectionTitle('2) Lista de asistencia', y);
-  doc.text(
-    'Se registra la asistencia de los siguientes colonos (nombre y domicilio/casa):',
-    mL, y,
-  );
-  y += 6;
+  y = sectionTitle('2) Lista de asistencia', checkPage(y, 20));
+  doc.text('Se registra la asistencia de los siguientes colonos (nombre y domicilio/casa):', mL, y);
+  y += 7;
   const attending = attendees.filter((a) => a.status === 'attending' && a.user);
   if (attending.length === 0) {
     doc.text('(Sin asistentes registrados en el sistema)', mL + 8, y);
@@ -269,77 +314,95 @@ export async function downloadMinuta(meeting: Meeting, attendees: RsvpWithUser[]
     for (let i = 0; i < attending.length; i++) {
       y = checkPage(y, 6);
       const u = attending[i].user!;
-      const addr = u.house ? ` \u2014 ${u.house.address || u.house.houseNumber}` : '';
-      doc.text(`${i + 1}. ${u.name} ${u.lastName}${addr}`, mL + 8, y);
-      y += 5.5;
+      const houseLabel = u.house
+        ? (u.house.address ? u.house.address : `Casa ${u.house.houseNumber}`)
+        : '';
+      const entry = houseLabel
+        ? `${i + 1}. ${u.name} ${u.lastName} \u2014 ${houseLabel}`
+        : `${i + 1}. ${u.name} ${u.lastName}`;
+      const entryLines = doc.splitTextToSize(entry, textW - 8);
+      doc.text(entryLines, mL + 8, y);
+      y += entryLines.length * 5.5 + 1;
     }
   }
-  y += 6;
+  y += 7;
 
   // ── 3) Quórum ─────────────────────────────────────────────────────────────
-  y = sectionTitle('3) Qu\u00f3rum', y);
-  doc.text(
-    'Se establece como criterio de qu\u00f3rum con las personas presentes efectuar la junta.',
-    mL, y,
-  );
+  y = sectionTitle('3) Qu\u00f3rum', checkPage(y, 14));
+  doc.text('Se establece como criterio de qu\u00f3rum con las personas presentes efectuar la junta.', mL, y);
   y += 10;
 
   // ── 4) Orden del día ──────────────────────────────────────────────────────
   y = sectionTitle('4) Orden del d\u00eda', checkPage(y, 14));
   const items = agendaItems(meeting.description);
-  for (let i = 0; i < items.length; i++) {
-    y = checkPage(y, 6);
-    const lines = doc.splitTextToSize(`${i + 1}. ${items[i]}`, textW - 8);
-    doc.text(lines, mL + 8, y);
-    y += lines.length * 5.5 + 1;
+  if (items.length === 0) {
+    doc.text('(Sin agenda registrada)', mL + 8, y);
+    y += 6;
+  } else {
+    for (let i = 0; i < items.length; i++) {
+      y = checkPage(y, 6);
+      const lines = doc.splitTextToSize(`${i + 1}. ${items[i]}`, textW - 8);
+      doc.text(lines, mL + 8, y);
+      y += lines.length * 5.5 + 1;
+    }
   }
-  y += 6;
+  y += 7;
 
-  // ── 5) Desarrollo ─────────────────────────────────────────────────────────
+  // ── 5) Desarrollo de la asamblea ──────────────────────────────────────────
   y = sectionTitle('5) Desarrollo de la asamblea', checkPage(y, 14));
   if (meeting.minutes) {
-    const minuteLines = meeting.minutes.split('\n').filter((l) => l.trim());
-    for (const line of minuteLines) {
-      y = checkPage(y, 7);
-      const text = line.trim().startsWith('\u2022') ? line.trim() : `\u2022 ${line.trim()}`;
-      const wrapped = doc.splitTextToSize(text, textW - 8);
-      doc.text(wrapped, mL + 8, y);
-      y += wrapped.length * 5.5 + 2;
-    }
+    y = bulletLines(meeting.minutes, y);
   } else {
-    doc.text('(Sin contenido de acta)', mL + 8, y);
+    doc.text('(Sin contenido registrado)', mL + 8, y);
     y += 6;
   }
-  y += 8;
+  y += 7;
 
-  // ── 6) Clausura ───────────────────────────────────────────────────────────
-  y = sectionTitle('6) Clausura', checkPage(y, 20));
-  const endTime = meeting.endTime ? formatTime12h(meeting.endTime) : '';
-  const clausura = endTime
+  // ── 6) Acuerdos y resoluciones ────────────────────────────────────────────
+  y = sectionTitle('6) Acuerdos y resoluciones', checkPage(y, 14));
+  if (meeting.minutesAgreements) {
+    y = numberedLines(meeting.minutesAgreements, y);
+  } else {
+    doc.text('(Sin acuerdos registrados)', mL + 8, y);
+    y += 6;
+  }
+  y += 7;
+
+  // ── 7) Responsables y seguimiento ─────────────────────────────────────────
+  y = sectionTitle('7) Responsables y seguimiento', checkPage(y, 14));
+  if (meeting.minutesResponsibles) {
+    y = bulletLines(meeting.minutesResponsibles, y);
+  } else {
+    doc.text('(Sin responsables registrados)', mL + 8, y);
+    y += 6;
+  }
+  y += 7;
+
+  // ── 8) Clausura ───────────────────────────────────────────────────────────
+  y = sectionTitle('8) Clausura', checkPage(y, 20));
+  const closingT = meeting.minutesClosingTime || meeting.endTime;
+  const endTime12 = closingT ? formatTime12h(closingT) : '';
+  const clausura = endTime12
     ? `No habiendo m\u00e1s asuntos que tratar, se da por concluida la asamblea a la ` +
-      `${endTime} del d\u00eda ${dayNum} de ${monthLong} de ${year}, levant\u00e1ndose ` +
+      `${endTime12} del d\u00eda ${dayNum} de ${monthLong} de ${year}, levant\u00e1ndose ` +
       `la presente acta para los efectos conducentes.`
     : `No habiendo m\u00e1s asuntos que tratar, se da por concluida la asamblea del ` +
       `d\u00eda ${dayNum} de ${monthLong} de ${year}, levant\u00e1ndose la presente ` +
       `acta para los efectos conducentes.`;
   const clausuraLines = doc.splitTextToSize(clausura, textW);
-  doc.text(clausuraLines, mL, y, { align: 'justify' });
+  doc.text(clausuraLines, mL, y, { maxWidth: textW });
   y += clausuraLines.length * 5.8 + 16;
 
-  // ── Bottom watermark on last page ─────────────────────────────────────────
-  if (logoData) {
-    const lastPageH = pageH;
-    const sepY = lastPageH - 78;
-    if (y < sepY) {
-      doc.setDrawColor(180, 180, 180);
-      doc.setLineWidth(0.3);
-      doc.line(mL, sepY, pageW - mR, sepY);
-
-      doc.saveGraphicsState();
-      doc.setGState(new GState({ opacity: 0.15 }));
-      doc.addImage(logoData, 'PNG', (pageW - 155) / 2, sepY + 4, 155, 62);
-      doc.restoreGraphicsState();
-    }
+  // ── Bottom logo watermark on last page ────────────────────────────────────
+  const sepY = pageH - 78;
+  if (y < sepY && logoData) {
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.3);
+    doc.line(mL, sepY, pageW - mR, sepY);
+    doc.saveGraphicsState();
+    doc.setGState(new GState({ opacity: 0.15 }));
+    doc.addImage(logoData, 'PNG', (pageW - 155) / 2, sepY + 4, 155, 62);
+    doc.restoreGraphicsState();
   }
 
   doc.save(`Minuta_${monthUpper}_${year}.pdf`);

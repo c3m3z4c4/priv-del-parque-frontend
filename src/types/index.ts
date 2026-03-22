@@ -32,6 +32,9 @@ export interface Meeting {
   location: string;
   description: string;
   minutes?: string;
+  minutesAgreements?: string;
+  minutesResponsibles?: string;
+  minutesClosingTime?: string;
   status: 'active' | 'cancelled' | 'postponed';
   cancelReason?: string;
   originalDate?: string;
