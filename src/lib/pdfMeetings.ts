@@ -92,6 +92,19 @@ export async function downloadConvocatoria(meeting: Meeting) {
     loadGrayscaleBase64(logoSrc),
   ]);
 
+  // ── Background watermark (draw FIRST so text renders on top) ─────────────
+  const watermark = logoGray || logoData;
+  if (watermark) {
+    const wmW = 160;
+    const wmH = 130;
+    const wmX = (pageW - wmW) / 2;
+    const wmY = (pageH - wmH) / 2;
+    doc.saveGraphicsState();
+    doc.setGState(new GState({ opacity: logoGray ? 0.12 : 0.06 }));
+    doc.addImage(watermark, 'PNG', wmX, wmY, wmW, wmH);
+    doc.restoreGraphicsState();
+  }
+
   // ── Top-left logo ────────────────────────────────────────────────────────
   if (logoData) {
     doc.addImage(logoData, 'PNG', mL, 10, 38, 30);
@@ -152,26 +165,6 @@ export async function downloadConvocatoria(meeting: Meeting) {
     `\u00abMesa Directiva de Vecinos ${year}\u00bb`,
     pageW / 2, y, { align: 'center' },
   );
-
-  // ── Separator line (fixed 100mm from bottom) ─────────────────────────────
-  const sepY = pageH - 100;
-  doc.setDrawColor(180, 180, 180);
-  doc.setLineWidth(0.3);
-  doc.line(mL, sepY, pageW - mR, sepY);
-
-  // ── Bottom watermark — grayscale logo fills remaining space ───────────────
-  const watermark = logoGray || logoData;
-  if (watermark) {
-    const logoX = mL;
-    const logoW = pageW - mL - mR;
-    const logoY = sepY + 4;
-    const logoH = pageH - logoY - 5; // fills to within 5mm of page bottom
-
-    doc.saveGraphicsState();
-    doc.setGState(new GState({ opacity: logoGray ? 0.22 : 0.10 }));
-    doc.addImage(watermark, 'PNG', logoX, logoY, logoW, logoH);
-    doc.restoreGraphicsState();
-  }
 
   doc.save(`Convocatoria_${monthUpper}_${year}.pdf`);
 }
