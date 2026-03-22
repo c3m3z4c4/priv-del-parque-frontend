@@ -104,7 +104,7 @@ function ImportUsersDialog({
   onOpenChange: (v: boolean) => void;
   onImported: () => void;
   existingEmails: Set<string>;
-  existingUsers: Map<string, { name: string; lastName: string }>;
+  existingUsers: Map<string, { name: string; lastName: string; phone?: string | null }>;
 }) {
   const { toast } = useToast();
   const [text, setText] = useState('');
@@ -122,15 +122,18 @@ function ImportUsersDialog({
         const email = (cols[0] ?? '').toLowerCase();
         const name = cols[1] || POR_LLENAR;
         const lastName = cols[2] || POR_LLENAR;
-        const phone = cols[3] || POR_LLENAR;
+        const rawPhone = cols[3] || POR_LLENAR;
+        const phone = (rawPhone === '-' || rawPhone === '') ? POR_LLENAR : rawPhone;
         const role = cols[4] || 'VECINO';
         const houseNumber = cols[5] || '';
         const password = cols[6] || '';
         const incomplete = name === POR_LLENAR || name === '' || lastName === POR_LLENAR || lastName === '';
         const isDuplicate = existingEmails.has(email);
         const dbUser = isDuplicate ? existingUsers.get(email) : undefined;
+        const csvHasRealPhone = phone !== POR_LLENAR;
         const updatable = isDuplicate && !incomplete && !!dbUser &&
-          (dbUser.name === POR_LLENAR || dbUser.lastName === POR_LLENAR);
+          (dbUser.name === POR_LLENAR || dbUser.lastName === POR_LLENAR ||
+           (!dbUser.phone && csvHasRealPhone));
         return { email, name, lastName, phone, role, houseNumber, password, duplicate: isDuplicate && !updatable, updatable, incomplete };
       })
       .filter(r => r.email && r.email.includes('@'));
@@ -524,7 +527,7 @@ export default function AdminUsers() {
         onOpenChange={setImportOpen}
         onImported={refetch}
         existingEmails={new Set(users.map(u => u.email.toLowerCase()))}
-        existingUsers={new Map(users.map(u => [u.email.toLowerCase(), { name: u.name, lastName: u.lastName }]))}
+        existingUsers={new Map(users.map(u => [u.email.toLowerCase(), { name: u.name, lastName: u.lastName, phone: u.phone }]))}
       />
     </AdminLayout>
   );
