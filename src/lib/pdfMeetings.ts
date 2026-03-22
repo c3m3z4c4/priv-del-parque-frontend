@@ -153,22 +153,22 @@ export async function downloadConvocatoria(meeting: Meeting) {
     pageW / 2, y, { align: 'center' },
   );
 
-  // ── Separator line ───────────────────────────────────────────────────────
-  const sepY = pageH - 78;
+  // ── Separator line (fixed 100mm from bottom) ─────────────────────────────
+  const sepY = pageH - 100;
   doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.3);
   doc.line(mL, sepY, pageW - mR, sepY);
 
-  // ── Bottom watermark — grayscale logo, low opacity ────────────────────────
+  // ── Bottom watermark — grayscale logo fills remaining space ───────────────
   const watermark = logoGray || logoData;
   if (watermark) {
-    const logoW = 155;
-    const logoH = 62;
-    const logoX = (pageW - logoW) / 2;
+    const logoX = mL;
+    const logoW = pageW - mL - mR;
     const logoY = sepY + 4;
+    const logoH = pageH - logoY - 5; // fills to within 5mm of page bottom
 
     doc.saveGraphicsState();
-    doc.setGState(new GState({ opacity: logoGray ? 0.25 : 0.12 }));
+    doc.setGState(new GState({ opacity: logoGray ? 0.22 : 0.10 }));
     doc.addImage(watermark, 'PNG', logoX, logoY, logoW, logoH);
     doc.restoreGraphicsState();
   }
