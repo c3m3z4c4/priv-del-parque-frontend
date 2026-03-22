@@ -158,9 +158,12 @@ function ImportHousesDialog({
         const existing = houseIndex.get(houseNumber);
         let status: RowStatus = 'new';
         if (existing) {
-          const hasResidents = (existing.residents?.length ?? 0) > 0;
-          // Update only if: house exists, no current residents, and CSV has emails to assign
-          status = (!hasResidents && residentEmails.length > 0) ? 'update' : 'skip';
+          // Residents with "Por Llenar" name/lastName are considered placeholders
+          const hasRealResidents = (existing.residents ?? []).some(
+            r => r.name !== 'Por Llenar' && r.lastName !== 'Por Llenar'
+          );
+          // Update if: no real residents and CSV has real emails (not "Sin Residente" / "-")
+          status = (!hasRealResidents && residentEmails.length > 0) ? 'update' : 'skip';
         }
         return { houseNumber, address, residentEmails, status };
       })
