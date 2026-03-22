@@ -14,12 +14,15 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, Calendar, MapPin, Clock, Loader2, Search, Download, FileText, Users } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Plus, Pencil, Trash2, Calendar, MapPin, Clock, Loader2, Search, Download, FileText, Users, Mail, ScrollText } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { RsvpCount } from '@/components/RsvpButtons';
 import { AttendanceDialog } from '@/components/admin/AttendanceDialog';
+import { meetingsApi, rsvpsApi } from '@/lib/api';
+import { downloadConvocatoria, downloadMinuta } from '@/lib/pdfMeetings';
 
 export default function AdminMeetings() {
   const { meetings, isLoading, addMeeting, updateMeeting, deleteMeeting } = useMeetings();
@@ -34,10 +37,40 @@ export default function AdminMeetings() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  const [pdfLoading, setPdfLoading] = useState<string | null>(null);
+  const [emailLoading, setEmailLoading] = useState<string | null>(null);
+
   const handleCreate = () => { setSelectedMeeting(null); setFormOpen(true); };
   const handleEdit = (meeting: Meeting) => { setSelectedMeeting(meeting); setFormOpen(true); };
   const handleDelete = (meeting: Meeting) => { setSelectedMeeting(meeting); setDeleteOpen(true); };
   const handleAttendance = (meeting: Meeting) => { setSelectedMeeting(meeting); setAttendanceOpen(true); };
+
+  const handleDownloadConvocatoria = async (meeting: Meeting) => {
+    setPdfLoading(`conv-${meeting.id}`);
+    try { await downloadConvocatoria(meeting); }
+    catch { toast({ title: 'Error', description: 'No se pudo generar el PDF.', variant: 'destructive' }); }
+    finally { setPdfLoading(null); }
+  };
+
+  const handleDownloadMinuta = async (meeting: Meeting) => {
+    setPdfLoading(`min-${meeting.id}`);
+    try {
+      const attendees = await rsvpsApi.getAttendance('meeting', meeting.id);
+      await downloadMinuta(meeting, attendees);
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo generar la minuta.', variant: 'destructive' });
+    } finally { setPdfLoading(null); }
+  };
+
+  const handleSendEmail = async (meeting: Meeting) => {
+    setEmailLoading(meeting.id);
+    try {
+      const result = await meetingsApi.sendInvitation(meeting.id);
+      toast({ title: 'Correos enviados', description: `${result.sent} enviados, ${result.failed} fallidos.` });
+    } catch (e: any) {
+      toast({ title: 'Error al enviar', description: e.message, variant: 'destructive' });
+    } finally { setEmailLoading(null); }
+  };
 
   const handleFormSubmit = async (data: { title: string; location: string; date: string; startTime: string; endTime?: string; description?: string; minutes?: string }) => {
     try {
@@ -203,17 +236,60 @@ export default function AdminMeetings() {
                               <RsvpCount targetType="meeting" targetId={meeting.id} />
                             </TableCell>
                             <TableCell className="text-right">
-                              <div className="flex justify-end gap-1">
-                                <Button variant="ghost" size="icon" onClick={() => handleAttendance(meeting)} title="Ver asistencia">
-                                  <Users className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleEdit(meeting)} title="Editar">
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleDelete(meeting)} title="Eliminar" className="text-destructive hover:text-destructive">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
+                              <TooltipProvider>
+                                <div className="flex justify-end gap-1">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button variant="ghost" size="icon" onClick={() => handleDownloadConvocatoria(meeting)} disabled={pdfLoading === `conv-${meeting.id}`} title="Descargar convocatoria">
+                                        {pdfLoading === `conv-${meeting.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Descargar convocatoria</TooltipContent>
+                                  </Tooltip>
+                                  {meeting.minutes && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" onClick={() => handleDownloadMinuta(meeting)} disabled={pdfLoading === `min-${meeting.id}`} title="Descargar minuta">
+                                          {pdfLoading === `min-${meeting.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScrollText className="h-4 w-4" />}
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Descargar minuta</TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button variant="ghost" size="icon" onClick={() => handleSendEmail(meeting)} disabled={emailLoading === meeting.id} title="Enviar convocatoria por correo">
+                                        {emailLoading === meeting.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Enviar convocatoria por correo</TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button variant="ghost" size="icon" onClick={() => handleAttendance(meeting)} title="Ver asistencia">
+                                        <Users className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Ver asistencia</TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button variant="ghost" size="icon" onClick={() => handleEdit(meeting)} title="Editar">
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Editar</TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button variant="ghost" size="icon" onClick={() => handleDelete(meeting)} title="Eliminar" className="text-destructive hover:text-destructive">
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Eliminar</TooltipContent>
+                                  </Tooltip>
+                                </div>
+                              </TooltipProvider>
                             </TableCell>
                           </TableRow>
                         );
