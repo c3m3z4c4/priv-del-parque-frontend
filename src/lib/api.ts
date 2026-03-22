@@ -258,6 +258,32 @@ export const duesPolicyApi = {
   getDebtors: () => request<import('@/types').Debtor[]>('/dues/debtors'),
 };
 
+// ─── Reservations ─────────────────────────────────────────────────────────────
+export type CreateReservationPayload = {
+  greenArea: string;
+  title: string;
+  description?: string;
+  date: string;
+  startTime: string;
+  endTime?: string;
+};
+
+export const reservationsApi = {
+  getAll: () => request<import('@/types').GreenAreaReservation[]>('/reservations'),
+  create: (data: CreateReservationPayload) =>
+    request<import('@/types').GreenAreaReservation>('/reservations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  review: (id: string, data: { status: 'approved' | 'rejected'; adminNotes?: string }) =>
+    request<import('@/types').GreenAreaReservation>(`/reservations/${id}/review`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  cancel: (id: string) =>
+    request<void>(`/reservations/${id}`, { method: 'DELETE' }),
+};
+
 // ─── Backup ───────────────────────────────────────────────────────────────────
 export const backupApi = {
   download: async (): Promise<void> => {

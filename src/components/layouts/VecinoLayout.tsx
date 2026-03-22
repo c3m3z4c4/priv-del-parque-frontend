@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   ClipboardList,
+  Leaf,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,7 @@ const vecinoLinks = [
   { to: '/eventos', label: 'Eventos', icon: TreePine },
   { to: '/cuotas', label: 'Cuotas', icon: DollarSign },
   { to: '/proyectos', label: 'Proyectos', icon: ClipboardList },
+  { to: '/area-verde', label: 'Área Verde', icon: Leaf },
   { to: '/perfil', label: 'Perfil', icon: User },
 ];
 

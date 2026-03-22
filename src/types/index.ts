@@ -150,6 +150,26 @@ export interface Debtor {
   pendingPayments: { month: number; year: number; amount: number }[];
 }
 
+export type ReservationStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+
+export interface GreenAreaReservation {
+  id: string;
+  userId: string;
+  user?: User;
+  greenArea: string;
+  title: string;
+  description?: string;
+  date: string;
+  startTime: string;
+  endTime?: string;
+  status: ReservationStatus;
+  adminNotes?: string;
+  reviewedById?: string;
+  reviewedBy?: User;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AuthState {
   user: User | null;
   token: string | null;

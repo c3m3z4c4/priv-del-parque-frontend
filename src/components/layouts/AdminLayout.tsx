@@ -16,6 +16,7 @@ import {
   Sun,
   Moon,
   ClipboardList,
+  Leaf,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useTheme } from 'next-themes';
@@ -33,6 +34,7 @@ const adminLinks = [
   { to: '/admin/usuarios', label: 'Usuarios', icon: Users },
   { to: '/admin/cuotas', label: 'Cuotas', icon: DollarSign },
   { to: '/admin/proyectos', label: 'Proyectos', icon: ClipboardList },
+  { to: '/admin/reservaciones', label: 'Área Verde', icon: Leaf },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
