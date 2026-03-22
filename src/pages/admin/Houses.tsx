@@ -155,15 +155,24 @@ function ImportHousesDialog({
           .map(e => e.trim())
           .filter(e => e.includes('@') && e.includes('.'));
 
+        // Col 4 = semicolon-separated resident names — "Por Llenar Por Llenar" means both
+        // name and lastName are placeholders; also ignore "Sin Residente" / "Sin residentes"
+        const PLACEHOLDER_NAMES = new Set(['Sin Residente', 'Sin residentes', 'Por Llenar Por Llenar', '-', '']);
+        const csvResidentNames = (cols[4] ?? '').split(';').map(n => n.trim());
+        const csvHasOnlyPlaceholderNames = csvResidentNames.length > 0 &&
+          csvResidentNames.every(n => PLACEHOLDER_NAMES.has(n));
+
         const existing = houseIndex.get(houseNumber);
         let status: RowStatus = 'new';
         if (existing) {
-          // Residents with "Por Llenar" name/lastName are considered placeholders
-          const hasRealResidents = (existing.residents ?? []).some(
+          // DB residents with "Por Llenar" name/lastName are considered placeholders
+          const dbHasRealResidents = (existing.residents ?? []).some(
             r => r.name !== 'Por Llenar' && r.lastName !== 'Por Llenar'
           );
+          // Also treat as no-real-residents if col 4 explicitly shows only placeholder names
+          const hasNoRealResidents = !dbHasRealResidents || csvHasOnlyPlaceholderNames;
           // Update if: no real residents and CSV has real emails (not "Sin Residente" / "-")
-          status = (!hasRealResidents && residentEmails.length > 0) ? 'update' : 'skip';
+          status = (hasNoRealResidents && residentEmails.length > 0) ? 'update' : 'skip';
         }
         return { houseNumber, address, residentEmails, status };
       })
