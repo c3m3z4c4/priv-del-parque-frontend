@@ -148,8 +148,11 @@ export const meetingsApi = {
   create: (data: CreateMeetingPayload) => request<import('@/types').Meeting>('/meetings', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: Partial<CreateMeetingPayload>) => request<import('@/types').Meeting>(`/meetings/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   remove: (id: string) => request<void>(`/meetings/${id}`, { method: 'DELETE' }),
-  sendInvitation: (id: string) =>
-    request<{ sent: number; failed: number }>(`/meetings/${id}/send-invitation`, { method: 'POST' }),
+  sendInvitation: (id: string, emails?: string[]) =>
+    request<{ sent: number; failed: number }>(`/meetings/${id}/send-invitation`, {
+      method: 'POST',
+      body: JSON.stringify({ emails }),
+    }),
 };
 
 // ─── Events ──────────────────────────────────────────────────────────────────

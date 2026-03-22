@@ -21,8 +21,9 @@ import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { RsvpCount } from '@/components/RsvpButtons';
 import { AttendanceDialog } from '@/components/admin/AttendanceDialog';
-import { meetingsApi, rsvpsApi } from '@/lib/api';
+import { rsvpsApi } from '@/lib/api';
 import { downloadConvocatoria, downloadMinuta } from '@/lib/pdfMeetings';
+import { SendInvitationDialog } from '@/components/admin/SendInvitationDialog';
 
 export default function AdminMeetings() {
   const { meetings, isLoading, addMeeting, updateMeeting, deleteMeeting } = useMeetings();
@@ -31,6 +32,7 @@ export default function AdminMeetings() {
   const [formOpen, setFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [attendanceOpen, setAttendanceOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'upcoming' | 'past'>('all');
@@ -38,7 +40,6 @@ export default function AdminMeetings() {
   const [pageSize, setPageSize] = useState(10);
 
   const [pdfLoading, setPdfLoading] = useState<string | null>(null);
-  const [emailLoading, setEmailLoading] = useState<string | null>(null);
 
   const handleCreate = () => { setSelectedMeeting(null); setFormOpen(true); };
   const handleEdit = (meeting: Meeting) => { setSelectedMeeting(meeting); setFormOpen(true); };
@@ -62,14 +63,9 @@ export default function AdminMeetings() {
     } finally { setPdfLoading(null); }
   };
 
-  const handleSendEmail = async (meeting: Meeting) => {
-    setEmailLoading(meeting.id);
-    try {
-      const result = await meetingsApi.sendInvitation(meeting.id);
-      toast({ title: 'Correos enviados', description: `${result.sent} enviados, ${result.failed} fallidos.` });
-    } catch (e: any) {
-      toast({ title: 'Error al enviar', description: e.message, variant: 'destructive' });
-    } finally { setEmailLoading(null); }
+  const handleSendEmail = (meeting: Meeting) => {
+    setSelectedMeeting(meeting);
+    setInviteOpen(true);
   };
 
   const handleFormSubmit = async (data: { title: string; location: string; date: string; startTime: string; endTime?: string; description?: string; minutes?: string }) => {
@@ -78,8 +74,10 @@ export default function AdminMeetings() {
         await updateMeeting(selectedMeeting.id, data);
         toast({ title: 'Reunión actualizada', description: `"${data.title}" se actualizó correctamente.` });
       } else {
-        await addMeeting(data);
+        const created = await addMeeting(data);
         toast({ title: 'Reunión creada', description: `"${data.title}" se creó correctamente.` });
+        setSelectedMeeting(created);
+        setInviteOpen(true);
       }
     } catch (e: any) {
       toast({ title: 'Error', description: e.message || 'No se pudo guardar la reunión.', variant: 'destructive' });
@@ -258,8 +256,8 @@ export default function AdminMeetings() {
                                   )}
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <Button variant="ghost" size="icon" onClick={() => handleSendEmail(meeting)} disabled={emailLoading === meeting.id} title="Enviar convocatoria por correo">
-                                        {emailLoading === meeting.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                                      <Button variant="ghost" size="icon" onClick={() => handleSendEmail(meeting)} title="Enviar convocatoria por correo">
+                                        <Mail className="h-4 w-4" />
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>Enviar convocatoria por correo</TooltipContent>
@@ -312,6 +310,11 @@ export default function AdminMeetings() {
         targetType="meeting"
         targetId={selectedMeeting?.id ?? ''}
         targetTitle={selectedMeeting?.title ?? ''}
+      />
+      <SendInvitationDialog
+        meeting={selectedMeeting}
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
       />
     </AdminLayout>
   );
