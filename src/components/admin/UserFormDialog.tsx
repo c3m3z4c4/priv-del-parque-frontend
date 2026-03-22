@@ -215,7 +215,7 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, houses }: U
                           <SelectValue placeholder="Selecciona un rol" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
+                      <SelectContent position="popper">
                         <SelectItem value="VECINO">Vecino</SelectItem>
                         <SelectItem value="ADMIN">Administrador</SelectItem>
                         <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
@@ -260,7 +260,7 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, houses }: U
                           <SelectValue placeholder="Sin asignar" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
+                      <SelectContent position="popper">
                         <SelectItem value="none">Sin asignar</SelectItem>
                         {houses.map((h) => (
                           <SelectItem key={h.id} value={h.id}>{h.houseNumber}</SelectItem>

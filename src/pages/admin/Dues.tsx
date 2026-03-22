@@ -691,7 +691,7 @@ export default function AdminDues() {
                     <SelectTrigger className="w-full sm:w-[180px]">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper">
                       <SelectItem value="all">Todos los estados</SelectItem>
                       <SelectItem value="paid">Pagados</SelectItem>
                       <SelectItem value="pending">Pendientes</SelectItem>

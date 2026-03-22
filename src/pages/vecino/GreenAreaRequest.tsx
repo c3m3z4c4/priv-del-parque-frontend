@@ -187,7 +187,7 @@ export default function GreenAreaRequestPage() {
               <Label>Área Verde *</Label>
               <Select value={form.greenArea} onValueChange={v => setForm(f => ({ ...f, greenArea: v }))}>
                 <SelectTrigger><SelectValue placeholder="Selecciona un área" /></SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper">
                   {greenAreas.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
                 </SelectContent>
               </Select>

@@ -111,7 +111,7 @@ export function EventFormDialog({ open, onOpenChange, event, onSubmit, defaultDa
                         <SelectValue placeholder="Selecciona un área verde" />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
+                    <SelectContent position="popper">
                       {greenAreas.map((area) => (
                         <SelectItem key={area} value={area}>
                           {area}

@@ -143,7 +143,7 @@ export function HouseFormDialog({ open, onOpenChange, house, users, onSubmit }: 
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
+                      <SelectContent position="popper">
                         <SelectItem value="active">Activa</SelectItem>
                         <SelectItem value="inactive">Inactiva</SelectItem>
                       </SelectContent>

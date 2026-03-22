@@ -241,7 +241,7 @@ export default function AdminProjects() {
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper">
                   {(Object.keys(STATUS_CONFIG) as ProjectStatus[]).map((s) => (
                     <SelectItem key={s} value={s}>{STATUS_CONFIG[s].label}</SelectItem>
                   ))}
