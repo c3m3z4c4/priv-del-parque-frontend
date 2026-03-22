@@ -96,7 +96,7 @@ export const usersApi = {
   remove: (id: string) =>
     request<void>(`/users/${id}`, { method: 'DELETE' }),
   import: (users: ImportUserRow[]) =>
-    request<{ created: number; skipped: number; skippedEmails: string[] }>(
+    request<{ created: number; updated: number; skipped: number; skippedEmails: string[] }>(
       '/users/import',
       { method: 'POST', body: JSON.stringify({ users }) },
     ),

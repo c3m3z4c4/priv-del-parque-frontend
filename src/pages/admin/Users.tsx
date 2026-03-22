@@ -93,16 +93,18 @@ interface UserPreviewRow {
   houseNumber: string;
   password: string;
   duplicate: boolean;
+  updatable: boolean; // exists in DB with Por Llenar name — will be updated
   incomplete: boolean; // name or lastName is missing/Por Llenar
 }
 
 function ImportUsersDialog({
-  open, onOpenChange, onImported, existingEmails,
+  open, onOpenChange, onImported, existingEmails, existingUsers,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onImported: () => void;
   existingEmails: Set<string>;
+  existingUsers: Map<string, { name: string; lastName: string }>;
 }) {
   const { toast } = useToast();
   const [text, setText] = useState('');
@@ -125,7 +127,11 @@ function ImportUsersDialog({
         const houseNumber = cols[5] || '';
         const password = cols[6] || '';
         const incomplete = name === POR_LLENAR || name === '' || lastName === POR_LLENAR || lastName === '';
-        return { email, name, lastName, phone, role, houseNumber, password, duplicate: existingEmails.has(email), incomplete };
+        const isDuplicate = existingEmails.has(email);
+        const dbUser = isDuplicate ? existingUsers.get(email) : undefined;
+        const updatable = isDuplicate && !incomplete && !!dbUser &&
+          (dbUser.name === POR_LLENAR || dbUser.lastName === POR_LLENAR);
+        return { email, name, lastName, phone, role, houseNumber, password, duplicate: isDuplicate && !updatable, updatable, incomplete };
       })
       .filter(r => r.email && r.email.includes('@'));
   }, [text, existingEmails]);
@@ -146,7 +152,7 @@ function ImportUsersDialog({
   };
 
   const handleImport = async () => {
-    const newRows = preview.filter(r => !r.duplicate && !r.incomplete);
+    const newRows = preview.filter(r => (!r.duplicate || r.updatable) && !r.incomplete);
     if (newRows.length === 0) return;
     setLoading(true);
     try {
@@ -162,7 +168,7 @@ function ImportUsersDialog({
       const result = await usersApi.import(payload);
       toast({
         title: 'Importación completada',
-        description: `${result.created} usuarios creados${result.skipped ? `, ${result.skipped} omitidos` : ''}. Contraseña por defecto: Bienvenido2026!`,
+        description: `${result.created} creados${result.updated ? `, ${result.updated} actualizados` : ''}${result.skipped ? `, ${result.skipped} omitidos` : ''}. Contraseña por defecto: Bienvenido2026!`,
       });
       setText('');
       onOpenChange(false);
@@ -174,9 +180,10 @@ function ImportUsersDialog({
     }
   };
 
-  const newCount = preview.filter(r => !r.duplicate && !r.incomplete).length;
+  const newCount = preview.filter(r => !r.duplicate && !r.updatable && !r.incomplete).length;
+  const updatableCount = preview.filter(r => r.updatable).length;
   const dupCount = preview.filter(r => r.duplicate).length;
-  const incompleteCount = preview.filter(r => !r.duplicate && r.incomplete).length;
+  const incompleteCount = preview.filter(r => !r.duplicate && !r.updatable && r.incomplete).length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -221,6 +228,7 @@ function ImportUsersDialog({
                 <p className="text-xs font-medium text-muted-foreground">Vista previa — {preview.length} usuarios</p>
                 <div className="flex gap-3 text-xs">
                   <span className="text-green-700 font-medium">{newCount} nuevos</span>
+                  {updatableCount > 0 && <span className="text-blue-600 font-medium">{updatableCount} a actualizar</span>}
                   {dupCount > 0 && <span className="text-amber-600 font-medium">{dupCount} duplicados</span>}
                   {incompleteCount > 0 && <span className="text-red-600 font-medium">{incompleteCount} incompletos</span>}
                 </div>
@@ -248,9 +256,11 @@ function ImportUsersDialog({
                         <TableCell className="text-xs">
                           {r.duplicate
                             ? <span className="text-amber-600 font-medium">Duplicado</span>
-                            : r.incomplete
-                              ? <span className="text-red-600 font-medium">Incompleto</span>
-                              : <span className="text-green-700 font-medium">Nuevo</span>}
+                            : r.updatable
+                              ? <span className="text-blue-600 font-medium">Actualizar</span>
+                              : r.incomplete
+                                ? <span className="text-red-600 font-medium">Incompleto</span>
+                                : <span className="text-green-700 font-medium">Nuevo</span>}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -269,10 +279,10 @@ function ImportUsersDialog({
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button onClick={handleImport} disabled={newCount === 0 || loading}>
+            <Button onClick={handleImport} disabled={(newCount + updatableCount) === 0 || loading}>
               {loading
                 ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importando...</>
-                : `Importar ${newCount} usuarios nuevos`}
+                : `Importar ${newCount + updatableCount} usuario${newCount + updatableCount !== 1 ? 's' : ''}`}
             </Button>
           </div>
         </div>
@@ -514,6 +524,7 @@ export default function AdminUsers() {
         onOpenChange={setImportOpen}
         onImported={refetch}
         existingEmails={new Set(users.map(u => u.email.toLowerCase()))}
+        existingUsers={new Map(users.map(u => [u.email.toLowerCase(), { name: u.name, lastName: u.lastName }]))}
       />
     </AdminLayout>
   );
