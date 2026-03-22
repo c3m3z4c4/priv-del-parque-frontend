@@ -13,7 +13,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { reservationsApi, duesApi } from '@/lib/api';
 import { GreenAreaReservation } from '@/types';
 import { greenAreas } from '@/data/mockData';
-import { Plus, TreePine, Clock, CalendarDays, X, AlertCircle, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Plus, TreePine, Clock, CalendarDays, X, AlertCircle, CheckCircle2, XCircle, Loader2, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -23,6 +23,7 @@ function statusBadge(status: GreenAreaReservation['status']) {
     case 'approved':  return <Badge variant="outline" className="border-green-500 text-green-700 bg-green-50">Aprobada</Badge>;
     case 'rejected':  return <Badge variant="outline" className="border-red-400 text-red-600 bg-red-50">Rechazada</Badge>;
     case 'cancelled': return <Badge variant="outline" className="text-muted-foreground">Cancelada</Badge>;
+    case 'closed':    return <Badge variant="outline" className="border-blue-400 text-blue-700 bg-blue-50">Cerrada</Badge>;
   }
 }
 
@@ -32,6 +33,7 @@ function statusIcon(status: GreenAreaReservation['status']) {
     case 'approved':  return <CheckCircle2 className="h-5 w-5 text-green-600" />;
     case 'rejected':  return <XCircle className="h-5 w-5 text-red-500" />;
     case 'cancelled': return <XCircle className="h-5 w-5 text-muted-foreground" />;
+    case 'closed':    return <CheckCircle2 className="h-5 w-5 text-blue-600" />;
   }
 }
 
@@ -111,7 +113,7 @@ export default function GreenAreaRequestPage() {
 
   const pending  = reservations.filter(r => r.status === 'pending');
   const approved = reservations.filter(r => r.status === 'approved');
-  const past     = reservations.filter(r => r.status === 'rejected' || r.status === 'cancelled');
+  const past     = reservations.filter(r => r.status === 'rejected' || r.status === 'cancelled' || r.status === 'closed');
 
   return (
     <VecinoLayout>
@@ -249,10 +251,29 @@ function ReservationCard({ r, onCancel }: { r: GreenAreaReservation; onCancel?: 
                   <span className="font-medium not-italic">Nota: </span>{r.adminNotes}
                 </p>
               )}
-              {r.reviewedBy && (
+              {r.reviewedBy && r.status !== 'closed' && (
                 <p className="text-xs text-muted-foreground">
                   Revisado por {r.reviewedBy.name} {r.reviewedBy.lastName}
                 </p>
+              )}
+              {r.status === 'closed' && (
+                <div className="mt-2 rounded-md border border-blue-200 bg-blue-50/50 px-3 py-2 space-y-1">
+                  <p className="text-xs font-medium text-blue-700">Reporte de cierre</p>
+                  <div className="flex gap-3 text-xs text-muted-foreground flex-wrap">
+                    <span className={r.checklistBanos ? 'text-green-700' : 'text-red-600'}>
+                      {r.checklistBanos ? '✓' : '✗'} Baños
+                    </span>
+                    <span className={r.checklistInstalaciones ? 'text-green-700' : 'text-red-600'}>
+                      {r.checklistInstalaciones ? '✓' : '✗'} Instalaciones
+                    </span>
+                    {r.chargeAmount != null && Number(r.chargeAmount) > 0 && (
+                      <span className="text-red-600 font-medium flex items-center gap-0.5">
+                        <DollarSign className="h-3 w-3" /> Cargo: ${Number(r.chargeAmount).toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                  {r.closureNotes && <p className="text-xs text-muted-foreground italic">{r.closureNotes}</p>}
+                </div>
               )}
             </div>
           </div>

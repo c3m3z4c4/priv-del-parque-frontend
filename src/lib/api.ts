@@ -282,6 +282,11 @@ export const reservationsApi = {
     }),
   cancel: (id: string) =>
     request<void>(`/reservations/${id}`, { method: 'DELETE' }),
+  close: (id: string, data: { checklistBanos: boolean; checklistInstalaciones: boolean; closureNotes?: string; chargeAmount?: number }) =>
+    request<import('@/types').GreenAreaReservation>(`/reservations/${id}/close`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
 };
 
 // ─── Backup ───────────────────────────────────────────────────────────────────

@@ -150,7 +150,7 @@ export interface Debtor {
   pendingPayments: { month: number; year: number; amount: number }[];
 }
 
-export type ReservationStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type ReservationStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'closed';
 
 export interface GreenAreaReservation {
   id: string;
@@ -166,6 +166,14 @@ export interface GreenAreaReservation {
   adminNotes?: string;
   reviewedById?: string;
   reviewedBy?: User;
+  // Closure
+  closedById?: string;
+  closedBy?: User;
+  closedAt?: string;
+  checklistBanos?: boolean;
+  checklistInstalaciones?: boolean;
+  closureNotes?: string;
+  chargeAmount?: number;
   createdAt: string;
   updatedAt: string;
 }
