@@ -23,7 +23,10 @@ function formatTime12h(time: string): string {
 
 function agendaItems(description?: string): string[] {
   if (!description?.trim()) return [];
-  return description.split('\n').map((l) => l.trim()).filter(Boolean);
+  return description
+    .split('\n')
+    .map((l) => l.trim().replace(/^[•\-\*]\s*/, '')) // strip leading bullet chars
+    .filter(Boolean);
 }
 
 async function loadBase64(src: string): Promise<string | null> {
@@ -35,6 +38,31 @@ async function loadBase64(src: string): Promise<string | null> {
       reader.onloadend = () => resolve(reader.result as string);
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function loadGrayscaleBase64(src: string): Promise<string | null> {
+  try {
+    const res = await fetch(src);
+    const blob = await res.blob();
+    const imgUrl = URL.createObjectURL(blob);
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.filter = 'grayscale(1)';
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(imgUrl);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = () => { URL.revokeObjectURL(imgUrl); resolve(null); };
+      img.src = imgUrl;
     });
   } catch {
     return null;
@@ -59,7 +87,10 @@ export async function downloadConvocatoria(meeting: Meeting) {
   const monthLong = format(date, 'MMMM', { locale: es });
   const time12 = formatTime12h(meeting.startTime);
 
-  const logoData = await loadBase64(logoSrc);
+  const [logoData, logoGray] = await Promise.all([
+    loadBase64(logoSrc),
+    loadGrayscaleBase64(logoSrc),
+  ]);
 
   // ── Top-left logo ────────────────────────────────────────────────────────
   if (logoData) {
@@ -92,20 +123,15 @@ export async function downloadConvocatoria(meeting: Meeting) {
     `en ${meeting.location} a las ${time12}. La junta vecinal se desarrollar\u00e1 ` +
     `conforme al siguiente orden del d\u00eda:`;
   const bodyLines = doc.splitTextToSize(body, textW);
-  doc.text(bodyLines, mL, y, { align: 'justify' });
+  doc.text(bodyLines, mL, y, { maxWidth: textW });
   y += bodyLines.length * 5.8 + 6;
 
-  // ── Agenda (bullets) ─────────────────────────────────────────────────────
+  // ── Agenda (bullets) — use description as-is, no fixed duplicates ─────────
   const items = agendaItems(meeting.description);
-  const allItems = [
-    'Lista de asistencia y verificaci\u00f3n de qu\u00f3rum.',
-    ...items,
-    'Acuerdos y cierre.',
-  ];
-  for (const item of allItems) {
-    const lines = doc.splitTextToSize('\u2022 ' + item, textW - 10);
-    doc.text(lines, mL + 10, y);
-    y += lines.length * 5.8 + 1;
+  for (const item of items) {
+    const lines = doc.splitTextToSize('\u2022 ' + item, textW - 8);
+    doc.text(lines, mL + 8, y);
+    y += lines.length * 6 + 1;
   }
   y += 7;
 
@@ -113,7 +139,7 @@ export async function downloadConvocatoria(meeting: Meeting) {
   const note =
     'Nota: Se les reitera que los acuerdos tomados en la junta son de aplicaci\u00f3n general.';
   const noteLines = doc.splitTextToSize(note, textW);
-  doc.text(noteLines, mL, y, { align: 'justify' });
+  doc.text(noteLines, mL, y, { maxWidth: textW });
   y += noteLines.length * 5.8 + 10;
 
   // ── Sign-off (centered) ───────────────────────────────────────────────────
@@ -133,16 +159,17 @@ export async function downloadConvocatoria(meeting: Meeting) {
   doc.setLineWidth(0.3);
   doc.line(mL, sepY, pageW - mR, sepY);
 
-  // ── Bottom watermark logo ─────────────────────────────────────────────────
-  if (logoData) {
+  // ── Bottom watermark — grayscale logo, low opacity ────────────────────────
+  const watermark = logoGray || logoData;
+  if (watermark) {
     const logoW = 155;
     const logoH = 62;
     const logoX = (pageW - logoW) / 2;
     const logoY = sepY + 4;
 
     doc.saveGraphicsState();
-    doc.setGState(new GState({ opacity: 0.15 }));
-    doc.addImage(logoData, 'PNG', logoX, logoY, logoW, logoH);
+    doc.setGState(new GState({ opacity: logoGray ? 0.25 : 0.12 }));
+    doc.addImage(watermark, 'PNG', logoX, logoY, logoW, logoH);
     doc.restoreGraphicsState();
   }
 
@@ -267,14 +294,9 @@ export async function downloadMinuta(meeting: Meeting, attendees: RsvpWithUser[]
   // ── 4) Orden del día ──────────────────────────────────────────────────────
   y = sectionTitle('4) Orden del d\u00eda', checkPage(y, 14));
   const items = agendaItems(meeting.description);
-  const allItems = [
-    'Declaraci\u00f3n de instalaci\u00f3n de la asamblea y qu\u00f3rum.',
-    ...items,
-    'Acuerdos y cierre.',
-  ];
-  for (let i = 0; i < allItems.length; i++) {
+  for (let i = 0; i < items.length; i++) {
     y = checkPage(y, 6);
-    const lines = doc.splitTextToSize(`${i + 1}. ${allItems[i]}`, textW - 8);
+    const lines = doc.splitTextToSize(`${i + 1}. ${items[i]}`, textW - 8);
     doc.text(lines, mL + 8, y);
     y += lines.length * 5.5 + 1;
   }
