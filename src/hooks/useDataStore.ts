@@ -41,7 +41,19 @@ export function useMeetings() {
     setMeetings(prev => prev.filter(m => m.id !== id));
   };
 
-  return { meetings, isLoading, addMeeting, updateMeeting, deleteMeeting };
+  const cancelMeeting = async (id: string, reason?: string): Promise<Meeting> => {
+    const meeting = await meetingsApi.cancel(id, reason);
+    setMeetings(prev => prev.map(m => m.id === id ? meeting : m));
+    return meeting;
+  };
+
+  const postponeMeeting = async (id: string, data: { date: string; startTime: string; endTime?: string }): Promise<Meeting> => {
+    const meeting = await meetingsApi.postpone(id, data);
+    setMeetings(prev => prev.map(m => m.id === id ? meeting : m));
+    return meeting;
+  };
+
+  return { meetings, isLoading, addMeeting, updateMeeting, deleteMeeting, cancelMeeting, postponeMeeting };
 }
 
 // Events Hook (API-based)
@@ -79,7 +91,19 @@ export function useEvents() {
     setEvents(prev => prev.filter(e => e.id !== id));
   };
 
-  return { events, isLoading, addEvent, updateEvent, deleteEvent };
+  const cancelEvent = async (id: string, reason?: string): Promise<GreenAreaEvent> => {
+    const event = await eventsApi.cancel(id, reason);
+    setEvents(prev => prev.map(e => e.id === id ? event : e));
+    return event;
+  };
+
+  const postponeEvent = async (id: string, data: { date: string; startTime: string; endTime?: string }): Promise<GreenAreaEvent> => {
+    const event = await eventsApi.postpone(id, data);
+    setEvents(prev => prev.map(e => e.id === id ? event : e));
+    return event;
+  };
+
+  return { events, isLoading, addEvent, updateEvent, deleteEvent, cancelEvent, postponeEvent };
 }
 
 // Houses Hook (API-based)

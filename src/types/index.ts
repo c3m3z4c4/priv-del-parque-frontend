@@ -32,6 +32,10 @@ export interface Meeting {
   location: string;
   description: string;
   minutes?: string;
+  status: 'active' | 'cancelled' | 'postponed';
+  cancelReason?: string;
+  originalDate?: string;
+  originalStartTime?: string;
   createdAt: string;
   createdById?: string;
 }
@@ -44,6 +48,10 @@ export interface GreenAreaEvent {
   startTime: string;
   endTime?: string;
   description: string;
+  status: 'active' | 'cancelled' | 'postponed';
+  cancelReason?: string;
+  originalDate?: string;
+  originalStartTime?: string;
   createdAt: string;
   createdById?: string;
 }

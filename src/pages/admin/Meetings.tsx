@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Plus, Pencil, Trash2, Calendar, MapPin, Clock, Loader2, Search, Download, FileText, Users, Mail, ScrollText } from 'lucide-react';
+import { Plus, Pencil, Trash2, Calendar, MapPin, Clock, Loader2, Search, Download, FileText, Users, Mail, ScrollText, Ban, CalendarClock } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
@@ -24,15 +24,19 @@ import { AttendanceDialog } from '@/components/admin/AttendanceDialog';
 import { rsvpsApi } from '@/lib/api';
 import { downloadConvocatoria, downloadMinuta } from '@/lib/pdfMeetings';
 import { SendInvitationDialog } from '@/components/admin/SendInvitationDialog';
+import { CancelDialog } from '@/components/admin/CancelDialog';
+import { PostponeDialog } from '@/components/admin/PostponeDialog';
 
 export default function AdminMeetings() {
-  const { meetings, isLoading, addMeeting, updateMeeting, deleteMeeting } = useMeetings();
+  const { meetings, isLoading, addMeeting, updateMeeting, deleteMeeting, cancelMeeting, postponeMeeting } = useMeetings();
   const { toast } = useToast();
 
   const [formOpen, setFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [attendanceOpen, setAttendanceOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [postponeOpen, setPostponeOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'upcoming' | 'past'>('all');
@@ -66,6 +70,31 @@ export default function AdminMeetings() {
   const handleSendEmail = (meeting: Meeting) => {
     setSelectedMeeting(meeting);
     setInviteOpen(true);
+  };
+
+  const handleCancel = (meeting: Meeting) => { setSelectedMeeting(meeting); setCancelOpen(true); };
+  const handlePostpone = (meeting: Meeting) => { setSelectedMeeting(meeting); setPostponeOpen(true); };
+
+  const handleConfirmCancel = async (reason?: string) => {
+    if (!selectedMeeting) return;
+    try {
+      await cancelMeeting(selectedMeeting.id, reason);
+      toast({ title: 'Reunión cancelada', description: `"${selectedMeeting.title}" fue cancelada.` });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message || 'No se pudo cancelar.', variant: 'destructive' });
+      throw e;
+    }
+  };
+
+  const handleConfirmPostpone = async (data: { date: string; startTime: string; endTime?: string }) => {
+    if (!selectedMeeting) return;
+    try {
+      await postponeMeeting(selectedMeeting.id, data);
+      toast({ title: 'Reunión pospuesta', description: `"${selectedMeeting.title}" fue reprogramada.` });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message || 'No se pudo posponer.', variant: 'destructive' });
+      throw e;
+    }
   };
 
   const handleFormSubmit = async (data: { title: string; location: string; date: string; startTime: string; endTime?: string; description?: string; minutes?: string }) => {
@@ -219,7 +248,13 @@ export default function AdminMeetings() {
                               </span>
                             </TableCell>
                             <TableCell>
-                              <Badge variant={past ? 'secondary' : 'default'}>{past ? 'Pasada' : 'Próxima'}</Badge>
+                              {meeting.status === 'cancelled' ? (
+                                <Badge variant="destructive">Cancelada</Badge>
+                              ) : meeting.status === 'postponed' ? (
+                                <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Pospuesta</Badge>
+                              ) : (
+                                <Badge variant={past ? 'secondary' : 'default'}>{past ? 'Pasada' : 'Próxima'}</Badge>
+                              )}
                             </TableCell>
                             <TableCell>
                               {meeting.minutes ? (
@@ -270,6 +305,26 @@ export default function AdminMeetings() {
                                     </TooltipTrigger>
                                     <TooltipContent>Ver asistencia</TooltipContent>
                                   </Tooltip>
+                                  {meeting.status !== 'cancelled' && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" onClick={() => handlePostpone(meeting)} title="Posponer">
+                                          <CalendarClock className="h-4 w-4" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Posponer</TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  {meeting.status !== 'cancelled' && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" onClick={() => handleCancel(meeting)} title="Cancelar" className="text-amber-600 hover:text-amber-700">
+                                          <Ban className="h-4 w-4" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Cancelar reunión</TooltipContent>
+                                    </Tooltip>
+                                  )}
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <Button variant="ghost" size="icon" onClick={() => handleEdit(meeting)} title="Editar">
@@ -315,6 +370,21 @@ export default function AdminMeetings() {
         meeting={selectedMeeting}
         open={inviteOpen}
         onOpenChange={setInviteOpen}
+      />
+      <CancelDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title={selectedMeeting?.title ?? ''}
+        onConfirm={handleConfirmCancel}
+      />
+      <PostponeDialog
+        open={postponeOpen}
+        onOpenChange={setPostponeOpen}
+        title={selectedMeeting?.title ?? ''}
+        currentDate={selectedMeeting?.date}
+        currentStartTime={selectedMeeting?.startTime}
+        currentEndTime={selectedMeeting?.endTime}
+        onConfirm={handleConfirmPostpone}
       />
     </AdminLayout>
   );

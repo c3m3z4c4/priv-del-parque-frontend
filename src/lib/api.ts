@@ -148,6 +148,10 @@ export const meetingsApi = {
   create: (data: CreateMeetingPayload) => request<import('@/types').Meeting>('/meetings', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: Partial<CreateMeetingPayload>) => request<import('@/types').Meeting>(`/meetings/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   remove: (id: string) => request<void>(`/meetings/${id}`, { method: 'DELETE' }),
+  cancel: (id: string, reason?: string) =>
+    request<import('@/types').Meeting>(`/meetings/${id}/cancel`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
+  postpone: (id: string, data: { date: string; startTime: string; endTime?: string }) =>
+    request<import('@/types').Meeting>(`/meetings/${id}/postpone`, { method: 'PATCH', body: JSON.stringify(data) }),
   sendInvitation: (id: string, emails?: string[]) =>
     request<{ sent: number; failed: number }>(`/meetings/${id}/send-invitation`, {
       method: 'POST',
@@ -165,6 +169,10 @@ export const eventsApi = {
   create: (data: CreateEventPayload) => request<import('@/types').GreenAreaEvent>('/events', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: Partial<CreateEventPayload>) => request<import('@/types').GreenAreaEvent>(`/events/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   remove: (id: string) => request<void>(`/events/${id}`, { method: 'DELETE' }),
+  cancel: (id: string, reason?: string) =>
+    request<import('@/types').GreenAreaEvent>(`/events/${id}/cancel`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
+  postpone: (id: string, data: { date: string; startTime: string; endTime?: string }) =>
+    request<import('@/types').GreenAreaEvent>(`/events/${id}/postpone`, { method: 'PATCH', body: JSON.stringify(data) }),
 };
 
 // ─── Notifications ─────────────────────────────────────────────────────────
