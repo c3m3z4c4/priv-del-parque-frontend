@@ -93,6 +93,7 @@ interface UserPreviewRow {
   houseNumber: string;
   password: string;
   duplicate: boolean;
+  incomplete: boolean; // name or lastName is missing/Por Llenar
 }
 
 function ImportUsersDialog({
@@ -123,7 +124,8 @@ function ImportUsersDialog({
         const role = cols[4] || 'VECINO';
         const houseNumber = cols[5] || '';
         const password = cols[6] || '';
-        return { email, name, lastName, phone, role, houseNumber, password, duplicate: existingEmails.has(email) };
+        const incomplete = name === POR_LLENAR || name === '' || lastName === POR_LLENAR || lastName === '';
+        return { email, name, lastName, phone, role, houseNumber, password, duplicate: existingEmails.has(email), incomplete };
       })
       .filter(r => r.email && r.email.includes('@'));
   }, [text, existingEmails]);
@@ -144,7 +146,7 @@ function ImportUsersDialog({
   };
 
   const handleImport = async () => {
-    const newRows = preview.filter(r => !r.duplicate);
+    const newRows = preview.filter(r => !r.duplicate && !r.incomplete);
     if (newRows.length === 0) return;
     setLoading(true);
     try {
@@ -172,8 +174,9 @@ function ImportUsersDialog({
     }
   };
 
-  const newCount = preview.filter(r => !r.duplicate).length;
+  const newCount = preview.filter(r => !r.duplicate && !r.incomplete).length;
   const dupCount = preview.filter(r => r.duplicate).length;
+  const incompleteCount = preview.filter(r => !r.duplicate && r.incomplete).length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -219,6 +222,7 @@ function ImportUsersDialog({
                 <div className="flex gap-3 text-xs">
                   <span className="text-green-700 font-medium">{newCount} nuevos</span>
                   {dupCount > 0 && <span className="text-amber-600 font-medium">{dupCount} duplicados</span>}
+                  {incompleteCount > 0 && <span className="text-red-600 font-medium">{incompleteCount} incompletos</span>}
                 </div>
               </div>
               <div className="max-h-52 overflow-y-auto">
@@ -235,16 +239,18 @@ function ImportUsersDialog({
                   </TableHeader>
                   <TableBody>
                     {preview.slice(0, 15).map((r, i) => (
-                      <TableRow key={i} className={r.duplicate ? 'opacity-60' : ''}>
+                      <TableRow key={i} className={r.duplicate || r.incomplete ? 'opacity-60' : ''}>
                         <TableCell className="text-xs">{r.email}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{r.name}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{r.lastName}</TableCell>
+                        <TableCell className={`text-xs ${r.incomplete && r.name === POR_LLENAR ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>{r.name}</TableCell>
+                        <TableCell className={`text-xs ${r.incomplete && r.lastName === POR_LLENAR ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>{r.lastName}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{r.role}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{r.houseNumber || '—'}</TableCell>
                         <TableCell className="text-xs">
                           {r.duplicate
                             ? <span className="text-amber-600 font-medium">Duplicado</span>
-                            : <span className="text-green-700 font-medium">Nuevo</span>}
+                            : r.incomplete
+                              ? <span className="text-red-600 font-medium">Incompleto</span>
+                              : <span className="text-green-700 font-medium">Nuevo</span>}
                         </TableCell>
                       </TableRow>
                     ))}
