@@ -24,6 +24,12 @@ import logo from '@/assets/logo.png';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+const HOUSE_TYPE_LABELS: Record<string, string> = {
+  casa: 'Casa',
+  en_construccion: 'En construcción',
+  terreno: 'Terreno',
+};
+
 function escapeCSV(value: string): string {
   if (value.includes(',') || value.includes('"') || value.includes('\n')) {
     return `"${value.replace(/"/g, '""')}"`;
@@ -440,6 +446,7 @@ export default function AdminHouses() {
     applySortLocale(filtered, sortCol, sortDir, (h, col) => {
       if (col === 'houseNumber') return h.houseNumber;
       if (col === 'address') return h.address ?? '';
+      if (col === 'type') return HOUSE_TYPE_LABELS[h.type ?? 'casa'];
       if (col === 'status') return h.status === 'active' ? 'Activa' : 'Inactiva';
       if (col === 'residents') return h.residents?.length ?? 0;
       if (col === 'createdAt') return h.createdAt;
@@ -558,6 +565,7 @@ export default function AdminHouses() {
                       <TableRow>
                         <SortableHead label="Número" colKey="houseNumber" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                         <SortableHead label="Calle" colKey="address" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="hidden sm:table-cell" />
+                        <SortableHead label="Tipo" colKey="type" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} className="hidden md:table-cell" />
                         <SortableHead label="Estado" colKey="status" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                         <SortableHead label="Residentes" colKey="residents" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                         <TableHead className="hidden lg:table-cell">Correo</TableHead>
@@ -573,6 +581,11 @@ export default function AdminHouses() {
                             <TableCell className="font-medium">{house.houseNumber}</TableCell>
                             <TableCell className="hidden sm:table-cell text-muted-foreground">
                               {house.address || '—'}
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell">
+                              <Badge variant={house.type === 'terreno' ? 'outline' : house.type === 'en_construccion' ? 'secondary' : 'default'} className="text-xs">
+                                {HOUSE_TYPE_LABELS[house.type ?? 'casa']}
+                              </Badge>
                             </TableCell>
                             <TableCell>
                               <Badge variant={house.status === 'active' ? 'default' : 'secondary'}>

@@ -14,11 +14,14 @@ export interface User {
   createdAt?: string;
 }
 
+export type HouseType = 'terreno' | 'en_construccion' | 'casa';
+
 export interface House {
   id: string;
   houseNumber: string;
   address?: string;
   status: 'active' | 'inactive';
+  type: HouseType;
   residents?: User[];
   createdAt: string;
 }

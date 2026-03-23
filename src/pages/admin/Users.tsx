@@ -53,11 +53,14 @@ function parseCSVLine(line: string): string[] {
   return cols;
 }
 
+const EXPORT_EXCLUDED_ROLES = new Set(['SUPER_ADMIN', 'ADMIN']);
+
 function exportUsersCSV(users: User[], houses: { id: string; houseNumber: string }[]) {
   const BOM = '\uFEFF';
   const houseMap = Object.fromEntries(houses.map(h => [h.id, h.houseNumber]));
+  const exportable = users.filter(u => !EXPORT_EXCLUDED_ROLES.has(u.role));
   const headers = ['Email', 'Nombre', 'Apellidos', 'Teléfono', 'Rol', 'Casa', 'Contraseña'];
-  const rows = users.map(u => [
+  const rows = exportable.map(u => [
     escapeCSV(u.email),
     escapeCSV(u.name || POR_LLENAR),
     escapeCSV(u.lastName || POR_LLENAR),
@@ -402,14 +405,14 @@ export default function AdminUsers() {
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button variant="outline" className="gap-2" onClick={() => {
-              const houseMap = Object.fromEntries(houses.map(h => [h.id, h.houseNumber]));
               const roleLabel = (r: string) => r === 'SUPER_ADMIN' ? 'Super Admin' : r === 'ADMIN' ? 'Admin' : r;
+              const exportable = filtered.filter(u => !EXPORT_EXCLUDED_ROLES.has(u.role));
               exportBrandedPDF({
                 title: 'Directorio de Usuarios',
-                subtitle: `Reporte de residentes — ${filtered.length} usuarios`,
+                subtitle: `Reporte de residentes — ${exportable.length} usuarios`,
                 logoUrl: logo,
                 columns: ['Nombre', 'Email', 'Rol', 'Teléfono', 'Casa', 'Calle'],
-                rows: filtered.map(u => {
+                rows: exportable.map(u => {
                   const house = u.houseId ? houses.find(h => h.id === u.houseId) : undefined;
                   return [
                     `${u.name} ${u.lastName}`,

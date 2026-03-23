@@ -20,6 +20,7 @@ const houseSchema = z.object({
   houseNumber: z.string().trim().min(1, 'El número es requerido'),
   address: z.string().trim().optional(),
   status: z.enum(['active', 'inactive']),
+  type: z.enum(['terreno', 'en_construccion', 'casa']),
   residentIds: z.array(z.string()).default([]),
 });
 
@@ -46,6 +47,7 @@ export function HouseFormDialog({ open, onOpenChange, house, users, onSubmit }: 
       houseNumber: '',
       address: '',
       status: 'active',
+      type: 'casa',
       residentIds: [],
     },
   });
@@ -58,10 +60,11 @@ export function HouseFormDialog({ open, onOpenChange, house, users, onSubmit }: 
           houseNumber: house.houseNumber,
           address: house.address ?? '',
           status: house.status,
+          type: house.type ?? 'casa',
           residentIds: (house.residents ?? []).map(r => r.id),
         });
       } else {
-        form.reset({ houseNumber: '', address: '', status: 'active', residentIds: [] });
+        form.reset({ houseNumber: '', address: '', status: 'active', type: 'casa', residentIds: [] });
       }
     }
   }, [open, house, form]);
@@ -99,6 +102,7 @@ export function HouseFormDialog({ open, onOpenChange, house, users, onSubmit }: 
       houseNumber: data.houseNumber,
       address: data.address || undefined,
       status: data.status,
+      type: data.type,
       residentIds: data.residentIds,
     });
     onOpenChange(false);
@@ -115,8 +119,8 @@ export function HouseFormDialog({ open, onOpenChange, house, users, onSubmit }: 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
 
-            {/* Row: Número + Calle */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Row: Número + Tipo + Estado */}
+            <div className="grid grid-cols-3 gap-3">
               <FormField
                 control={form.control}
                 name="houseNumber"
@@ -126,6 +130,29 @@ export function HouseFormDialog({ open, onOpenChange, house, users, onSubmit }: 
                     <FormControl>
                       <Input placeholder="Ej: A-101" {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent position="popper">
+                        <SelectItem value="casa">Casa</SelectItem>
+                        <SelectItem value="en_construccion">En construcción</SelectItem>
+                        <SelectItem value="terreno">Terreno</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

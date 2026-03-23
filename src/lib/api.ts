@@ -107,6 +107,7 @@ export type CreateHousePayload = {
   houseNumber: string;
   address?: string;
   status?: 'active' | 'inactive';
+  type?: 'terreno' | 'en_construccion' | 'casa';
 };
 
 export type UpdateHousePayload = Partial<CreateHousePayload>;
