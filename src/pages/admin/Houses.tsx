@@ -131,6 +131,7 @@ function ImportHousesDialog({
   const { toast } = useToast();
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [residentMode, setResidentMode] = useState<'overwrite' | 'merge'>('overwrite');
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Index existing houses by "number|address" for O(1) lookup (composite key)
@@ -193,14 +194,20 @@ function ImportHousesDialog({
         const allHouses = await housesApi.getAll();
         await Promise.all(
           withEmails.map(row => {
-            const house = allHouses.find(h => h.houseNumber === row.houseNumber);
+            const house = allHouses.find(
+              h => h.houseNumber === row.houseNumber && (h.address ?? '') === (row.address ?? ''),
+            );
             if (!house) return Promise.resolve();
-            const userIds = row.residentEmails
+            const newIds = row.residentEmails
               .map(e => emailIndex.get(e.toLowerCase()))
               .filter((id): id is string => !!id);
-            if (userIds.length === 0) return Promise.resolve();
+            if (newIds.length === 0) return Promise.resolve();
+            const existingIds = residentMode === 'merge'
+              ? (house.residents ?? []).map(r => r.id)
+              : [];
+            const mergedIds = Array.from(new Set([...existingIds, ...newIds]));
             residentsAssigned++;
-            return housesApi.assignResidents(house.id, userIds);
+            return housesApi.assignResidents(house.id, mergedIds);
           })
         );
       }
@@ -236,6 +243,40 @@ function ImportHousesDialog({
               <Upload className="h-4 w-4" /> Subir archivo .csv
             </Button>
             <span className="text-xs text-muted-foreground">o pega el contenido abajo</span>
+          </div>
+
+          {/* Resident assignment mode */}
+          <div className="rounded-lg border p-3 space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Asignación de residentes (si el CSV incluye emails)</p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="residentMode"
+                  value="overwrite"
+                  checked={residentMode === 'overwrite'}
+                  onChange={() => setResidentMode('overwrite')}
+                  className="accent-primary"
+                />
+                <span className="text-sm">Sobreescribir asignación</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="residentMode"
+                  value="merge"
+                  checked={residentMode === 'merge'}
+                  onChange={() => setResidentMode('merge')}
+                  className="accent-primary"
+                />
+                <span className="text-sm">Agregar a existente</span>
+              </label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {residentMode === 'overwrite'
+                ? 'Reemplaza los residentes actuales de cada casa con los del archivo.'
+                : 'Mantiene los residentes actuales y agrega los nuevos del archivo.'}
+            </p>
           </div>
 
           <div className="space-y-1">
@@ -332,6 +373,7 @@ export default function AdminHouses() {
   const [importOpen, setImportOpen] = useState(false);
   const [selectedHouse, setSelectedHouse] = useState<House | null>(null);
   const [search, setSearch] = useState('');
+  const [streetFilter, setStreetFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -373,6 +415,11 @@ export default function AdminHouses() {
     }
   };
 
+  const uniqueStreets = useMemo(() => {
+    const streets = houses.map(h => h.address ?? '').filter(Boolean);
+    return Array.from(new Set(streets)).sort((a, b) => a.localeCompare(b, 'es'));
+  }, [houses]);
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return houses.filter(h => {
@@ -383,10 +430,11 @@ export default function AdminHouses() {
         if (!h.houseNumber.toLowerCase().includes(q) && !(h.address ?? '').toLowerCase().includes(q) && !residentMatch)
           return false;
       }
+      if (streetFilter !== 'all' && (h.address ?? '') !== streetFilter) return false;
       if (statusFilter !== 'all' && h.status !== statusFilter) return false;
       return true;
     });
-  }, [houses, search, statusFilter]);
+  }, [houses, search, streetFilter, statusFilter]);
 
   const displayed = useMemo(() =>
     applySortLocale(filtered, sortCol, sortDir, (h, col) => {
@@ -449,17 +497,28 @@ export default function AdminHouses() {
         </div>
 
         {/* Search & Filters */}
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="relative flex-1">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar por número, dirección o residente..."
+              placeholder="Número o residente..."
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => { setSearch(e.target.value); setPage(1); }}
               className="pl-9"
             />
           </div>
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+          <Select value={streetFilter} onValueChange={(v) => { setStreetFilter(v); setPage(1); }}>
+            <SelectTrigger className="w-full sm:w-[220px]">
+              <SelectValue placeholder="Todas las calles" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las calles</SelectItem>
+              {uniqueStreets.map(s => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v as typeof statusFilter); setPage(1); }}>
             <SelectTrigger className="w-full sm:w-[160px]">
               <SelectValue />
             </SelectTrigger>
