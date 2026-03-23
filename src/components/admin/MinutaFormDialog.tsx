@@ -7,8 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, FileText } from 'lucide-react';
+import { Loader2, FileText, Sparkles } from 'lucide-react';
 import { Meeting } from '@/types';
+import { meetingsApi } from '@/lib/api';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -30,6 +31,8 @@ export function MinutaFormDialog({ open, onOpenChange, meeting, onSubmit }: Minu
   const [responsibles, setResponsibles] = useState('');
   const [closingTime, setClosingTime] = useState('');
   const [loading, setLoading] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
 
   // Reset fields when dialog opens with meeting data
   const handleOpenChange = (isOpen: boolean) => {
@@ -40,6 +43,22 @@ export function MinutaFormDialog({ open, onOpenChange, meeting, onSubmit }: Minu
       setClosingTime(meeting.minutesClosingTime || meeting.endTime || '');
     }
     onOpenChange(isOpen);
+  };
+
+  const handleGenerateDraft = async () => {
+    if (!meeting) return;
+    setDrafting(true);
+    setDraftError(null);
+    try {
+      const draft = await meetingsApi.draftMinutes(meeting.id);
+      setDevelopment(draft.development);
+      setAgreements(draft.agreements);
+      setResponsibles(draft.responsibles);
+    } catch (e: any) {
+      setDraftError(e.message || 'No se pudo generar el borrador.');
+    } finally {
+      setDrafting(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -75,6 +94,30 @@ export function MinutaFormDialog({ open, onOpenChange, meeting, onSubmit }: Minu
             {format(meetingDate, "d 'de' MMMM 'de' yyyy", { locale: es })} a las {meeting.startTime}
           </DialogDescription>
         </DialogHeader>
+
+        {/* AI Draft Button */}
+        <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+          <div>
+            <p className="text-sm font-medium">Generar borrador con IA</p>
+            <p className="text-xs text-muted-foreground">
+              Claude generará un borrador basado en el orden del día. Puedes editarlo antes de guardar.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleGenerateDraft}
+            disabled={drafting || loading}
+            className="ml-4 shrink-0 gap-2 border-primary/30 text-primary hover:bg-primary/10"
+          >
+            {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {drafting ? 'Generando...' : 'Generar borrador'}
+          </Button>
+        </div>
+        {draftError && (
+          <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{draftError}</p>
+        )}
 
         <div className="space-y-6 py-2">
           {/* Section 5: Desarrollo */}

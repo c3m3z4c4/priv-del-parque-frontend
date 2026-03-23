@@ -149,6 +149,8 @@ export const meetingsApi = {
   create: (data: CreateMeetingPayload) => request<import('@/types').Meeting>('/meetings', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: Partial<CreateMeetingPayload>) => request<import('@/types').Meeting>(`/meetings/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   remove: (id: string) => request<void>(`/meetings/${id}`, { method: 'DELETE' }),
+  draftMinutes: (id: string) =>
+    request<{ development: string; agreements: string; responsibles: string }>(`/meetings/${id}/draft-minutes`, { method: 'POST' }),
   cancel: (id: string, reason?: string) =>
     request<import('@/types').Meeting>(`/meetings/${id}/cancel`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
   postpone: (id: string, data: { date: string; startTime: string; endTime?: string }) =>
