@@ -192,7 +192,14 @@ export default function AdminDues() {
         duesApi.getSummary(month, year),
         duesApi.getConfig(),
       ]);
-      setPayments(all.filter(p => p.month === month && p.year === year));
+      setPayments(
+        all.filter(p =>
+          p.month === month &&
+          p.year === year &&
+          p.user?.role !== 'ADMIN' &&
+          p.user?.role !== 'SUPER_ADMIN',
+        ),
+      );
       setSummary(sum);
       setConfig(cfg);
     } catch (err: any) {
@@ -340,7 +347,9 @@ export default function AdminDues() {
   const handleExportCSV = () => {
     const monthName = MONTHS[month - 1];
     const header = ['Vecino', 'Email', 'Casa', 'Monto', 'Estado', 'Fecha de pago', 'Notas'];
-    const rows = payments.map(p => [
+    const rows = payments
+      .filter(p => p.user?.role !== 'ADMIN' && p.user?.role !== 'SUPER_ADMIN')
+      .map(p => [
       p.user ? `${p.user.name} ${p.user.lastName}` : p.userId,
       p.user?.email ?? '',
       p.house?.houseNumber ?? '',
@@ -359,24 +368,164 @@ export default function AdminDues() {
     URL.revokeObjectURL(url);
   };
 
-  const handleExportXLS = () => {
+  const handleExportXLS = async () => {
     const monthName = MONTHS[month - 1];
-    const data = [
-      ['Vecino', 'Email', 'Casa', 'Monto', 'Estado', 'Fecha de pago', 'Notas'],
-      ...payments.map(p => [
+    const exportable = payments.filter(
+      p => p.user?.role !== 'ADMIN' && p.user?.role !== 'SUPER_ADMIN',
+    );
+
+    // Dynamic import to keep bundle lean
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Privadas del Parque';
+    wb.created = new Date();
+
+    const ws = wb.addWorksheet(`${monthName} ${year}`);
+
+    // ── Column widths ──────────────────────────────────────────
+    ws.columns = [
+      { width: 28 }, // Vecino
+      { width: 30 }, // Email
+      { width: 10 }, // Casa
+      { width: 22 }, // Calle
+      { width: 13 }, // Monto
+      { width: 14 }, // Estado
+      { width: 16 }, // Fecha de pago
+      { width: 30 }, // Notas
+    ];
+
+    // ── Logo ───────────────────────────────────────────────────
+    try {
+      const resp = await fetch(logo);
+      const buf = await resp.arrayBuffer();
+      const imgId = wb.addImage({ buffer: buf, extension: 'png' });
+      ws.addImage(imgId, { tl: { col: 0, row: 0 }, ext: { width: 72, height: 54 } });
+    } catch { /* skip if logo fails */ }
+
+    // ── Header row ─────────────────────────────────────────────
+    ws.mergeCells('A1:H1');
+    const titleCell = ws.getCell('A1');
+    titleCell.value = '  REPORTE DE CUOTAS';
+    titleCell.font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D5A1B' } };
+    ws.getRow(1).height = 54;
+
+    // ── Subtitle row ───────────────────────────────────────────
+    ws.mergeCells('A2:H2');
+    const subCell = ws.getCell('A2');
+    subCell.value = `Privadas del Parque  ·  ${monthName} ${year}`;
+    subCell.font = { bold: true, size: 12, color: { argb: 'FF2D5A1B' } };
+    subCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F7ED' } };
+    ws.getRow(2).height = 22;
+
+    // ── Date row ───────────────────────────────────────────────
+    ws.mergeCells('A3:H3');
+    const dateCell = ws.getCell('A3');
+    dateCell.value = `Generado el ${new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+    dateCell.font = { size: 9, italic: true, color: { argb: 'FF6B7280' } };
+    dateCell.alignment = { horizontal: 'center' };
+    ws.getRow(3).height = 16;
+
+    // ── Spacer ─────────────────────────────────────────────────
+    ws.getRow(4).height = 6;
+
+    // ── Column headers ─────────────────────────────────────────
+    const HEADERS = ['Vecino', 'Email', 'Casa', 'Calle', 'Monto', 'Estado', 'Fecha de pago', 'Notas'];
+    const hRow = ws.getRow(5);
+    hRow.height = 22;
+    HEADERS.forEach((h, i) => {
+      const cell = hRow.getCell(i + 1);
+      cell.value = h;
+      cell.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4A7A30' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = {
+        bottom: { style: 'medium', color: { argb: 'FF2D5A1B' } },
+        right: { style: 'thin', color: { argb: 'FF6AAE45' } },
+      };
+    });
+
+    // ── Data rows ──────────────────────────────────────────────
+    let totalAmount = 0;
+    let totalPaid = 0;
+    let paidCount = 0;
+
+    exportable.forEach((p, i) => {
+      const isAlt = i % 2 === 1;
+      const bgArgb = isAlt ? 'FFF0F7ED' : 'FFFFFFFF';
+      const amount = Number(p.amount);
+      totalAmount += amount;
+      if (p.status === 'paid') { totalPaid += amount; paidCount++; }
+
+      const rowIdx = 6 + i;
+      const row = ws.getRow(rowIdx);
+      row.height = 18;
+
+      const statusLabel = p.status === 'paid' ? 'Pagado' : p.status === 'exempt' ? 'Exento' : 'Pendiente';
+      const statusColor = p.status === 'paid' ? 'FF166534' : p.status === 'exempt' ? 'FF6B7280' : 'FFB45309';
+
+      const values: (string | number)[] = [
         p.user ? `${p.user.name} ${p.user.lastName}` : p.userId,
         p.user?.email ?? '',
         p.house?.houseNumber ?? '',
-        Number(p.amount),
-        p.status === 'paid' ? 'Pagado' : p.status === 'exempt' ? 'Exento' : 'Pendiente',
-        p.paidAt ?? '',
+        p.house?.address ?? '',
+        amount,
+        statusLabel,
+        p.paidAt ? new Date(p.paidAt + (p.paidAt.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('es-MX') : '',
         p.notes ?? '',
-      ]),
+      ];
+
+      values.forEach((v, j) => {
+        const cell = row.getCell(j + 1);
+        cell.value = v;
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+        cell.border = { bottom: { style: 'hair', color: { argb: 'FFC5DBB8' } } };
+        cell.alignment = { vertical: 'middle' };
+        if (j === 4) {
+          cell.numFmt = '"$"#,##0.00';
+          cell.alignment = { horizontal: 'right', vertical: 'middle' };
+        }
+        if (j === 5) {
+          cell.font = { bold: p.status === 'paid', color: { argb: statusColor } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        }
+      });
+    });
+
+    // ── Total row ──────────────────────────────────────────────
+    const totalRowIdx = 6 + exportable.length;
+    const tRow = ws.getRow(totalRowIdx);
+    tRow.height = 22;
+    const totalValues: (string | number)[] = [
+      'TOTAL', '', '', '',
+      totalAmount,
+      `${paidCount} pagados / ${exportable.length} total`,
+      `Recaudado: $${totalPaid.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
+      '',
     ];
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, `${monthName} ${year}`);
-    XLSX.writeFile(wb, `cuotas_${monthName}_${year}.xlsx`);
+    totalValues.forEach((v, j) => {
+      const cell = tRow.getCell(j + 1);
+      cell.value = v;
+      cell.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC9922A' } };
+      cell.alignment = { vertical: 'middle', horizontal: j === 4 ? 'right' : j === 0 ? 'center' : 'left' };
+      cell.border = { top: { style: 'medium', color: { argb: 'FFA07020' } } };
+      if (j === 4) cell.numFmt = '"$"#,##0.00';
+    });
+
+    // ── Write ──────────────────────────────────────────────────
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cuotas_${monthName}_${year}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // Extraordinary handlers
@@ -562,7 +711,8 @@ export default function AdminDues() {
     const monthName = MONTHS[month - 1];
     const collected = summary?.collectedAmount ?? 0;
     const total = summary?.totalAmount ?? 0;
-    const rows = payments.map(p => {
+    const exportable = payments.filter(p => p.user?.role !== 'ADMIN' && p.user?.role !== 'SUPER_ADMIN');
+    const rows = exportable.map(p => {
       const name = p.user ? `${p.user.name} ${p.user.lastName}` : p.userId;
       const house = p.house?.houseNumber ?? '—';
       const amount = `$${Number(p.amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
