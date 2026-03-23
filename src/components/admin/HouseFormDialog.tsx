@@ -71,10 +71,8 @@ export function HouseFormDialog({ open, onOpenChange, house, users, onSubmit }: 
 
   const selectedIds = form.watch('residentIds');
 
-  // Users available: VECINOs without a house, or already assigned to THIS house
-  const availableUsers = users.filter(u =>
-    u.role === 'VECINO' && (!u.houseId || u.houseId === house?.id)
-  );
+  // All VECINOs are available — a vecino can own more than one property
+  const availableUsers = users.filter(u => u.role === 'VECINO');
 
   const filteredUsers = availableUsers.filter(u => {
     const q = userSearch.toLowerCase();
@@ -260,7 +258,7 @@ export function HouseFormDialog({ open, onOpenChange, house, users, onSubmit }: 
                 )}
               </ScrollArea>
               <p className="text-xs text-muted-foreground">
-                Solo vecinos sin casa asignada aparecen disponibles
+                Un vecino puede tener más de una propiedad asignada
               </p>
             </div>
 
