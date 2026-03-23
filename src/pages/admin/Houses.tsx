@@ -110,7 +110,7 @@ function parseCSVLine(line: string): string[] {
   return cols;
 }
 
-type RowStatus = 'new' | 'update' | 'skip';
+type RowStatus = 'new' | 'exists';
 
 interface PreviewRow {
   houseNumber: string;
@@ -133,9 +133,9 @@ function ImportHousesDialog({
   const [loading, setLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Index existing houses by number for O(1) lookup
+  // Index existing houses by "number|address" for O(1) lookup (composite key)
   const houseIndex = useMemo(
-    () => new Map(houses.map(h => [h.houseNumber, h])),
+    () => new Map(houses.map(h => [`${h.houseNumber}|${h.address ?? ''}`, h])),
     [houses],
   );
 
@@ -147,33 +147,15 @@ function ImportHousesDialog({
       .map(line => {
         // Columns: 0=Número, 1=Calle, 2=Estado, 3=Registro, 4=Residentes, 5=Emails
         const cols = parseCSVLine(line);
-        const houseNumber = cols[0] ?? '';
-        const address = cols[1] || undefined;
-        // Col 5 = semicolon-separated emails — filter out non-email strings like "Sin residentes"
+        const houseNumber = cols[0]?.trim() ?? '';
+        const address = cols[1]?.trim() || undefined;
+        // Col 5 = semicolon-separated emails — filter out non-email strings
         const residentEmails = (cols[5] ?? '')
           .split(';')
           .map(e => e.trim())
           .filter(e => e.includes('@') && e.includes('.'));
 
-        // Col 4 = semicolon-separated resident names — "Por Llenar Por Llenar" means both
-        // name and lastName are placeholders; also ignore "Sin Residente" / "Sin residentes"
-        const PLACEHOLDER_NAMES = new Set(['Sin Residente', 'Sin residentes', 'Por Llenar Por Llenar', '-', '']);
-        const csvResidentNames = (cols[4] ?? '').split(';').map(n => n.trim());
-        const csvHasOnlyPlaceholderNames = csvResidentNames.length > 0 &&
-          csvResidentNames.every(n => PLACEHOLDER_NAMES.has(n));
-
-        const existing = houseIndex.get(houseNumber);
-        let status: RowStatus = 'new';
-        if (existing) {
-          // DB residents with "Por Llenar" name/lastName are considered placeholders
-          const dbHasRealResidents = (existing.residents ?? []).some(
-            r => r.name !== 'Por Llenar' && r.lastName !== 'Por Llenar'
-          );
-          // Also treat as no-real-residents if col 4 explicitly shows only placeholder names
-          const hasNoRealResidents = !dbHasRealResidents || csvHasOnlyPlaceholderNames;
-          // Update if: no real residents and CSV has real emails (not "Sin Residente" / "-")
-          status = (hasNoRealResidents && residentEmails.length > 0) ? 'update' : 'skip';
-        }
+        const status: RowStatus = houseIndex.has(`${houseNumber}|${address ?? ''}`) ? 'exists' : 'new';
         return { houseNumber, address, residentEmails, status };
       })
       .filter(h => h.houseNumber);
@@ -196,44 +178,22 @@ function ImportHousesDialog({
   };
 
   const handleImport = async () => {
-    const newRows = preview.filter(r => r.status === 'new');
-    const updateRows = preview.filter(r => r.status === 'update');
-    if (newRows.length === 0 && updateRows.length === 0) return;
+    if (preview.length === 0) return;
     setLoading(true);
     try {
       const emailIndex = new Map(users.map(u => [u.email.toLowerCase(), u.id]));
-      let created = 0;
+
+      // 1. Upsert all houses (create new, update address of existing)
+      const result = await housesApi.import(preview.map(r => ({ houseNumber: r.houseNumber, address: r.address })));
+
+      // 2. Assign residents where CSV has valid emails
+      const withEmails = preview.filter(r => r.residentEmails.length > 0);
       let residentsAssigned = 0;
-
-      // 1. Bulk-create new houses
-      if (newRows.length > 0) {
-        const result = await housesApi.import(newRows.map(r => ({ houseNumber: r.houseNumber, address: r.address })));
-        created = result.created;
-
-        // Assign residents to newly created houses that have emails
-        const withEmails = newRows.filter(r => r.residentEmails.length > 0);
-        if (withEmails.length > 0) {
-          const allHouses = await housesApi.getAll();
-          await Promise.all(
-            withEmails.map(row => {
-              const house = allHouses.find(h => h.houseNumber === row.houseNumber);
-              if (!house) return Promise.resolve();
-              const userIds = row.residentEmails
-                .map(e => emailIndex.get(e.toLowerCase()))
-                .filter((id): id is string => !!id);
-              if (userIds.length === 0) return Promise.resolve();
-              residentsAssigned++;
-              return housesApi.assignResidents(house.id, userIds);
-            })
-          );
-        }
-      }
-
-      // 2. Assign residents to existing houses that have no residents yet
-      if (updateRows.length > 0) {
+      if (withEmails.length > 0) {
+        const allHouses = await housesApi.getAll();
         await Promise.all(
-          updateRows.map(row => {
-            const house = houseIndex.get(row.houseNumber);
+          withEmails.map(row => {
+            const house = allHouses.find(h => h.houseNumber === row.houseNumber);
             if (!house) return Promise.resolve();
             const userIds = row.residentEmails
               .map(e => emailIndex.get(e.toLowerCase()))
@@ -246,9 +206,10 @@ function ImportHousesDialog({
       }
 
       const parts: string[] = [];
-      if (created > 0) parts.push(`${created} casas creadas`);
-      if (updateRows.length > 0) parts.push(`${updateRows.length} casas actualizadas`);
+      if (result.created > 0) parts.push(`${result.created} casas creadas`);
+      if (result.updated > 0) parts.push(`${result.updated} casas actualizadas`);
       if (residentsAssigned > 0) parts.push(`${residentsAssigned} residentes asignados`);
+      if (parts.length === 0) parts.push('Sin cambios nuevos');
 
       toast({ title: 'Importación completada', description: parts.join(', ') + '.' });
       setText('');
@@ -301,11 +262,8 @@ function ImportHousesDialog({
                   {preview.some(h => h.status === 'new') && (
                     <span className="text-green-700 font-medium">{preview.filter(h => h.status === 'new').length} nuevas</span>
                   )}
-                  {preview.some(h => h.status === 'update') && (
-                    <span className="text-blue-600 font-medium">{preview.filter(h => h.status === 'update').length} actualizarán</span>
-                  )}
-                  {preview.some(h => h.status === 'skip') && (
-                    <span className="text-muted-foreground font-medium">{preview.filter(h => h.status === 'skip').length} omitidas</span>
+                  {preview.some(h => h.status === 'exists') && (
+                    <span className="text-blue-600 font-medium">{preview.filter(h => h.status === 'exists').length} ya existen</span>
                   )}
                 </div>
               </div>
@@ -321,7 +279,7 @@ function ImportHousesDialog({
                   </TableHeader>
                   <TableBody>
                     {preview.slice(0, 15).map((h, i) => (
-                      <TableRow key={i} className={h.status === 'skip' ? 'opacity-50' : ''}>
+                      <TableRow key={i}>
                         <TableCell className="text-xs font-medium">{h.houseNumber}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{h.address || '—'}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">
@@ -329,8 +287,7 @@ function ImportHousesDialog({
                         </TableCell>
                         <TableCell className="text-xs font-medium">
                           {h.status === 'new' && <span className="text-green-700">Nueva</span>}
-                          {h.status === 'update' && <span className="text-blue-600">Actualizar residente</span>}
-                          {h.status === 'skip' && <span className="text-muted-foreground">Omitida</span>}
+                          {h.status === 'exists' && <span className="text-blue-600">Ya existe</span>}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -351,18 +308,11 @@ function ImportHousesDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button
               onClick={handleImport}
-              disabled={(preview.filter(r => r.status === 'new').length + preview.filter(r => r.status === 'update').length) === 0 || loading}
+              disabled={preview.length === 0 || loading}
             >
               {loading ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importando...</>
-              ) : (() => {
-                const n = preview.filter(r => r.status === 'new').length;
-                const u = preview.filter(r => r.status === 'update').length;
-                const parts = [];
-                if (n > 0) parts.push(`${n} nuevas`);
-                if (u > 0) parts.push(`actualizar ${u}`);
-                return `Importar (${parts.join(' + ')})`;
-              })()}
+              ) : `Importar ${preview.length} casa${preview.length !== 1 ? 's' : ''}`}
             </Button>
           </div>
         </div>

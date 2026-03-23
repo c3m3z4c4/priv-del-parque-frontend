@@ -148,6 +148,22 @@ export interface DuesPolicy {
   createdAt: string;
 }
 
+export type ExtraordinaryCategory = 'multa' | 'evento' | 'obra' | 'cuota_especial' | 'otro';
+
+export interface ExtraordinaryIncome {
+  id: string;
+  concept: string;
+  description?: string;
+  amount: number;
+  date: string;
+  category: ExtraordinaryCategory;
+  houseId?: string;
+  notes?: string;
+  createdById?: string;
+  house?: House;
+  createdAt: string;
+}
+
 export type DebtorAccessStatus = 'active' | 'mobile_suspended' | 'card_suspended';
 
 export interface Debtor {

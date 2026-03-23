@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { VecinoLayout } from '@/components/layouts/VecinoLayout';
-import { DuesPayment, DuesPromotion } from '@/types';
-import { duesApi, promotionsApi } from '@/lib/api';
+import { DuesPayment, DuesPromotion, ExtraordinaryIncome } from '@/types';
+import { duesApi, promotionsApi, extraordinaryApi } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { DollarSign, CheckCircle2, Clock, Loader2, Tag } from 'lucide-react';
+import { DollarSign, CheckCircle2, Clock, Loader2, Tag, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const MONTHS = [
@@ -27,18 +27,21 @@ export default function VecinoDues() {
   const { toast } = useToast();
   const [payments, setPayments] = useState<DuesPayment[]>([]);
   const [promotions, setPromotions] = useState<DuesPromotion[]>([]);
+  const [extraordinary, setExtraordinary] = useState<ExtraordinaryIncome[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [all, promos] = await Promise.all([
+        const [all, promos, ext] = await Promise.all([
           duesApi.getAll(),
           promotionsApi.getActive(),
+          extraordinaryApi.getAll(),
         ]);
         all.sort((a, b) => b.year - a.year || b.month - a.month);
         setPayments(all);
         setPromotions(promos);
+        setExtraordinary(ext);
       } catch (err: any) {
         toast({ title: 'Error', description: err.message || 'No se pudieron cargar las cuotas.', variant: 'destructive' });
       } finally {
@@ -148,6 +151,50 @@ export default function VecinoDues() {
             )}
           </CardContent>
         </Card>
+
+        {/* Extraordinary Income Section */}
+        {extraordinary.length > 0 && (
+          <>
+            <div>
+              <h2 className="font-serif text-2xl font-bold">Cargos Extraordinarios</h2>
+              <p className="text-muted-foreground">Multas, eventos u otros cargos aplicados a tu casa</p>
+            </div>
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle className="font-serif text-lg flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-primary" />
+                  Historial de cargos extraordinarios
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Concepto</TableHead>
+                        <TableHead>Categoría</TableHead>
+                        <TableHead>Monto</TableHead>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead className="hidden sm:table-cell">Notas</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {extraordinary.map(ext => (
+                        <TableRow key={ext.id}>
+                          <TableCell className="font-medium">{ext.concept}</TableCell>
+                          <TableCell><Badge variant="outline">{ext.category}</Badge></TableCell>
+                          <TableCell>${Number(ext.amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="text-muted-foreground">{new Date(ext.date + 'T00:00:00').toLocaleDateString('es-MX')}</TableCell>
+                          <TableCell className="hidden sm:table-cell text-muted-foreground">{ext.notes || '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
 
         {/* Promotions Section */}
         <div>

@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { TablePagination, paginate } from '@/components/admin/TablePagination';
 import { useAuth } from '@/contexts/AuthContext';
-import { DuesPayment, DuesSummary, DuesConfig, DuesPromotion, DuesPolicy, Debtor } from '@/types';
-import { duesApi, promotionsApi, duesPolicyApi } from '@/lib/api';
+import { DuesPayment, DuesSummary, DuesConfig, DuesPromotion, DuesPolicy, Debtor, ExtraordinaryIncome, House } from '@/types';
+import { duesApi, promotionsApi, duesPolicyApi, extraordinaryApi, houseHistoryApi, housesApi } from '@/lib/api';
+import * as XLSX from 'xlsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,7 +19,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
-  DollarSign, CheckCircle2, Clock, Ban, Banknote, Loader2, Search, RefreshCw, Upload, CalendarDays, Plus, Pencil, Trash2, Tag, FileDown, Download, AlertTriangle, ShieldAlert, Smartphone, CreditCard, Settings2, ChevronDown, ChevronRight,
+  DollarSign, CheckCircle2, Clock, Ban, Banknote, Loader2, Search, RefreshCw, Upload, CalendarDays, Plus, Pencil, Trash2, Tag, FileDown, Download, AlertTriangle, ShieldAlert, Smartphone, CreditCard, Settings2, ChevronDown, ChevronRight, Home, Zap,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { exportBrandedPDF } from '@/lib/exportPDF';
@@ -134,6 +135,27 @@ export default function AdminDues() {
   const [debtorsLoading, setDebtorsLoading] = useState(false);
   const [expandedDebtor, setExpandedDebtor] = useState<string | null>(null);
 
+  // Extraordinary income state
+  const [extraordinary, setExtraordinary] = useState<ExtraordinaryIncome[]>([]);
+  const [extLoading, setExtLoading] = useState(false);
+  const [extDialogOpen, setExtDialogOpen] = useState(false);
+  const [editingExt, setEditingExt] = useState<ExtraordinaryIncome | null>(null);
+  const [deleteExt, setDeleteExt] = useState<ExtraordinaryIncome | null>(null);
+  const EMPTY_EXT = { concept: '', description: '', amount: 0, date: new Date().toISOString().split('T')[0], category: 'otro' as const, houseId: '', notes: '' };
+  const [extForm, setExtForm] = useState(EMPTY_EXT);
+  const [extSaving, setExtSaving] = useState(false);
+
+  // House history state
+  const [houses, setHouses] = useState<House[]>([]);
+  const [selectedHouseId, setSelectedHouseId] = useState('');
+  const [houseHistory, setHouseHistory] = useState<{ payments: DuesPayment[]; extraordinary: ExtraordinaryIncome[] } | null>(null);
+  const [houseHistoryLoading, setHouseHistoryLoading] = useState(false);
+
+  // Apply promotion state
+  const [applyPromoOpen, setApplyPromoOpen] = useState(false);
+  const [applyPromoForm, setApplyPromoForm] = useState({ houseId: '', promotionId: '', startMonth: now.getMonth() + 1, startYear: now.getFullYear(), paidAt: '' });
+  const [applyPromoSaving, setApplyPromoSaving] = useState(false);
+
   const MONTHS_FULL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
   const loadDebtors = useCallback(async () => {
@@ -192,8 +214,32 @@ export default function AdminDues() {
     }
   }, []);
 
+  const loadExtraordinary = useCallback(async () => {
+    setExtLoading(true);
+    try {
+      setExtraordinary(await extraordinaryApi.getAll());
+    } catch (err: any) {
+      toast({ title: 'Error al cargar ingresos extraordinarios', description: err.message, variant: 'destructive' });
+    } finally {
+      setExtLoading(false);
+    }
+  }, []);
+
+  const loadHouseHistory = useCallback(async (houseId: string) => {
+    if (!houseId) return;
+    setHouseHistoryLoading(true);
+    try {
+      setHouseHistory(await houseHistoryApi.get(houseId));
+    } catch (err: any) {
+      toast({ title: 'Error al cargar historial', description: err.message, variant: 'destructive' });
+    } finally {
+      setHouseHistoryLoading(false);
+    }
+  }, []);
+
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadPromotions(); }, [loadPromotions]);
+  useEffect(() => { housesApi.getAll().then(setHouses).catch(() => {}); }, []);
 
   const loadAnnual = useCallback(async () => {
     setAnnualLoading(true);
@@ -214,28 +260,37 @@ export default function AdminDues() {
   const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const isXLS = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
       const rows: typeof importPreviewRows = [];
-      for (const line of lines) {
-        const cols = parseCSVLine(line);
-        const email = cols[0]?.trim();
-        const monthNum = Number(cols[1]?.trim());
-        const yearNum = Number(cols[2]?.trim());
-        if (!email || email.toLowerCase() === 'email' || !monthNum || !yearNum) continue;
-        rows.push({
-          email,
-          month: monthNum,
-          year: yearNum,
-          paidAt: cols[3]?.trim() || '',
-          notes: cols[4]?.trim() || '',
-        });
+      if (isXLS) {
+        const wb = XLSX.read(ev.target?.result, { type: 'binary' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const data: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        for (const cols of data) {
+          const email = String(cols[0] ?? '').trim();
+          const monthNum = Number(cols[1]);
+          const yearNum = Number(cols[2]);
+          if (!email || email.toLowerCase() === 'email' || !monthNum || !yearNum) continue;
+          rows.push({ email, month: monthNum, year: yearNum, paidAt: String(cols[3] ?? '').trim(), notes: String(cols[4] ?? '').trim() });
+        }
+      } else {
+        const text = ev.target?.result as string;
+        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+        for (const line of lines) {
+          const cols = parseCSVLine(line);
+          const email = cols[0]?.trim();
+          const monthNum = Number(cols[1]?.trim());
+          const yearNum = Number(cols[2]?.trim());
+          if (!email || email.toLowerCase() === 'email' || !monthNum || !yearNum) continue;
+          rows.push({ email, month: monthNum, year: yearNum, paidAt: cols[3]?.trim() || '', notes: cols[4]?.trim() || '' });
+        }
       }
       setImportPreviewRows(rows);
     };
-    reader.readAsText(file);
+    if (isXLS) reader.readAsBinaryString(file);
+    else reader.readAsText(file);
     e.target.value = '';
   };
 
@@ -302,6 +357,84 @@ export default function AdminDues() {
     a.download = `cuotas_${monthName}_${year}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportXLS = () => {
+    const monthName = MONTHS[month - 1];
+    const data = [
+      ['Vecino', 'Email', 'Casa', 'Monto', 'Estado', 'Fecha de pago', 'Notas'],
+      ...payments.map(p => [
+        p.user ? `${p.user.name} ${p.user.lastName}` : p.userId,
+        p.user?.email ?? '',
+        p.house?.houseNumber ?? '',
+        Number(p.amount),
+        p.status === 'paid' ? 'Pagado' : p.status === 'exempt' ? 'Exento' : 'Pendiente',
+        p.paidAt ?? '',
+        p.notes ?? '',
+      ]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `${monthName} ${year}`);
+    XLSX.writeFile(wb, `cuotas_${monthName}_${year}.xlsx`);
+  };
+
+  // Extraordinary handlers
+  const openExtCreate = () => {
+    setEditingExt(null);
+    setExtForm(EMPTY_EXT);
+    setExtDialogOpen(true);
+  };
+
+  const openExtEdit = (ext: ExtraordinaryIncome) => {
+    setEditingExt(ext);
+    setExtForm({ concept: ext.concept, description: ext.description || '', amount: Number(ext.amount), date: ext.date, category: ext.category, houseId: ext.houseId || '', notes: ext.notes || '' });
+    setExtDialogOpen(true);
+  };
+
+  const handleExtSubmit = async () => {
+    if (!extForm.concept.trim()) { toast({ title: 'Error', description: 'Ingresa un concepto.', variant: 'destructive' }); return; }
+    if (!extForm.amount || extForm.amount <= 0) { toast({ title: 'Error', description: 'Ingresa un monto válido.', variant: 'destructive' }); return; }
+    setExtSaving(true);
+    try {
+      const payload = { concept: extForm.concept, description: extForm.description || undefined, amount: extForm.amount, date: extForm.date, category: extForm.category || undefined, houseId: extForm.houseId || undefined, notes: extForm.notes || undefined };
+      if (editingExt) { await extraordinaryApi.update(editingExt.id, payload); toast({ title: 'Ingreso actualizado' }); }
+      else { await extraordinaryApi.create(payload); toast({ title: 'Ingreso creado' }); }
+      setExtDialogOpen(false);
+      loadExtraordinary();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setExtSaving(false);
+    }
+  };
+
+  const handleExtDelete = async () => {
+    if (!deleteExt) return;
+    try {
+      await extraordinaryApi.remove(deleteExt.id);
+      toast({ title: 'Ingreso eliminado' });
+      setDeleteExt(null);
+      loadExtraordinary();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  // Apply promotion handler
+  const handleApplyPromo = async () => {
+    if (!applyPromoForm.houseId || !applyPromoForm.promotionId) { toast({ title: 'Error', description: 'Selecciona casa y promoción.', variant: 'destructive' }); return; }
+    setApplyPromoSaving(true);
+    try {
+      const result = await promotionsApi.apply({ ...applyPromoForm, paidAt: applyPromoForm.paidAt || undefined });
+      toast({ title: 'Promoción aplicada', description: `Se crearon/actualizaron ${result.applied} pagos.` });
+      setApplyPromoOpen(false);
+      load();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setApplyPromoSaving(false);
+    }
   };
 
   const handleGenerate = async () => {
@@ -528,6 +661,9 @@ export default function AdminDues() {
             <Button variant="outline" className="gap-2" onClick={handleExportCSV} disabled={payments.length === 0}>
               <Download className="h-4 w-4" /> Exportar CSV
             </Button>
+            <Button variant="outline" className="gap-2" onClick={handleExportXLS} disabled={payments.length === 0}>
+              <Download className="h-4 w-4" /> Exportar XLS
+            </Button>
             {canManage && (
               <Button variant="outline" className="gap-2" onClick={() => { setImportPreviewRows([]); setImportOpen(true); }}>
                 <Upload className="h-4 w-4" /> Importar pagos
@@ -617,9 +753,19 @@ export default function AdminDues() {
 
         {/* Main Tabs: Cuotas / Promociones */}
         <Tabs defaultValue="cuotas">
-          <TabsList>
+          <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="cuotas">Cuotas</TabsTrigger>
             <TabsTrigger value="promociones">Promociones</TabsTrigger>
+            {canManage && (
+              <TabsTrigger value="extraordinarios" className="gap-2" onClick={() => { if (extraordinary.length === 0 && !extLoading) loadExtraordinary(); }}>
+                <Zap className="h-4 w-4" /> Extraordinarios
+              </TabsTrigger>
+            )}
+            {canManage && (
+              <TabsTrigger value="por-casa" className="gap-2" onClick={() => {}}>
+                <Home className="h-4 w-4" /> Por Casa
+              </TabsTrigger>
+            )}
             {canManage && (
               <TabsTrigger value="deudores" className="gap-2" onClick={() => { if (debtors.length === 0 && !debtorsLoading) loadDebtors(); }}>
                 <ShieldAlert className="h-4 w-4" /> Deudores
@@ -772,13 +918,18 @@ export default function AdminDues() {
 
           {/* ─── Tab: Promociones ─────────────────────────────────────── */}
           <TabsContent value="promociones" className="space-y-6">
-            {user?.role === 'SUPER_ADMIN' && (
-              <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              {canManage && (
+                <Button variant="outline" onClick={() => { setApplyPromoForm({ houseId: '', promotionId: '', startMonth: now.getMonth() + 1, startYear: now.getFullYear(), paidAt: '' }); setApplyPromoOpen(true); }} className="gap-2">
+                  <Zap className="h-4 w-4" /> Aplicar promoción
+                </Button>
+              )}
+              {user?.role === 'SUPER_ADMIN' && (
                 <Button onClick={openPromoCreate} className="gap-2">
                   <Plus className="h-4 w-4" /> Nueva Promocion
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
 
             {promosLoading ? (
               <div className="flex items-center justify-center py-20">
@@ -852,6 +1003,177 @@ export default function AdminDues() {
               </Card>
             )}
           </TabsContent>
+
+          {/* ─── Tab: Extraordinarios ─────────────────────────────── */}
+          {canManage && (
+            <TabsContent value="extraordinarios" className="space-y-6">
+              <div className="flex justify-end">
+                <Button onClick={openExtCreate} className="gap-2">
+                  <Plus className="h-4 w-4" /> Nuevo ingreso
+                </Button>
+              </div>
+              {extLoading ? (
+                <div className="flex items-center justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+              ) : extraordinary.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <Zap className="h-12 w-12 text-muted-foreground/40" />
+                  <p className="mt-4 text-lg font-medium">Sin ingresos extraordinarios</p>
+                  <p className="text-sm text-muted-foreground">Registra multas, eventos, obras u otros ingresos</p>
+                </div>
+              ) : (
+                <Card className="shadow-card">
+                  <CardHeader><CardTitle className="font-serif text-lg flex items-center gap-2"><Zap className="h-5 w-5 text-primary" /> Ingresos Extraordinarios</CardTitle></CardHeader>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Concepto</TableHead>
+                            <TableHead className="hidden sm:table-cell">Categoría</TableHead>
+                            <TableHead>Monto</TableHead>
+                            <TableHead>Fecha</TableHead>
+                            <TableHead className="hidden md:table-cell">Casa</TableHead>
+                            <TableHead className="hidden md:table-cell">Notas</TableHead>
+                            <TableHead className="text-right">Acciones</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {extraordinary.map(ext => (
+                            <TableRow key={ext.id}>
+                              <TableCell className="font-medium">{ext.concept}</TableCell>
+                              <TableCell className="hidden sm:table-cell">
+                                <Badge variant="outline">{ext.category}</Badge>
+                              </TableCell>
+                              <TableCell>${Number(ext.amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</TableCell>
+                              <TableCell className="text-muted-foreground">{new Date(ext.date + 'T00:00:00').toLocaleDateString('es-MX')}</TableCell>
+                              <TableCell className="hidden md:table-cell text-muted-foreground">{ext.house?.houseNumber || '—'}</TableCell>
+                              <TableCell className="hidden md:table-cell text-muted-foreground max-w-[150px] truncate">{ext.notes || '—'}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-1">
+                                  <Button size="icon" variant="ghost" onClick={() => openExtEdit(ext)}><Pencil className="h-4 w-4" /></Button>
+                                  <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setDeleteExt(ext)}><Trash2 className="h-4 w-4" /></Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+          )}
+
+          {/* ─── Tab: Por Casa ─────────────────────────────────────── */}
+          {canManage && (
+            <TabsContent value="por-casa" className="space-y-6">
+              <Card className="shadow-card">
+                <CardHeader><CardTitle className="font-serif text-lg flex items-center gap-2"><Home className="h-5 w-5 text-primary" /> Historial por Casa</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="flex gap-3 items-center">
+                    <Select value={selectedHouseId} onValueChange={v => { setSelectedHouseId(v); setHouseHistory(null); loadHouseHistory(v); }}>
+                      <SelectTrigger className="w-full sm:w-[280px]">
+                        <SelectValue placeholder="Selecciona una casa..." />
+                      </SelectTrigger>
+                      <SelectContent position="popper">
+                        {houses.map(h => (
+                          <SelectItem key={h.id} value={h.id}>
+                            Casa {h.houseNumber}{h.address ? ` — ${h.address}` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedHouseId && (
+                      <Button variant="outline" size="sm" onClick={() => loadHouseHistory(selectedHouseId)} disabled={houseHistoryLoading}>
+                        <RefreshCw className={`h-4 w-4 ${houseHistoryLoading ? 'animate-spin' : ''}`} />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {houseHistoryLoading && (
+                <div className="flex items-center justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+              )}
+
+              {houseHistory && !houseHistoryLoading && (
+                <>
+                  {/* Monthly payments history */}
+                  <Card className="shadow-card">
+                    <CardHeader><CardTitle className="font-serif text-base flex items-center gap-2"><Banknote className="h-4 w-4 text-primary" /> Cuotas mensuales</CardTitle></CardHeader>
+                    <CardContent className="p-0">
+                      {houseHistory.payments.length === 0 ? (
+                        <p className="text-sm text-muted-foreground p-4">Sin registros de cuotas para esta casa.</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Periodo</TableHead>
+                                <TableHead>Residente</TableHead>
+                                <TableHead>Monto</TableHead>
+                                <TableHead>Estado</TableHead>
+                                <TableHead className="hidden md:table-cell">Fecha pago</TableHead>
+                                <TableHead className="hidden md:table-cell">Notas</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {houseHistory.payments.map(p => (
+                                <TableRow key={p.id}>
+                                  <TableCell className="font-medium">{MONTHS[p.month - 1]} {p.year}</TableCell>
+                                  <TableCell className="text-muted-foreground">{p.user ? `${p.user.name} ${p.user.lastName}` : p.userId}</TableCell>
+                                  <TableCell>${Number(p.amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</TableCell>
+                                  <TableCell>{statusBadge(p.status)}</TableCell>
+                                  <TableCell className="hidden md:table-cell text-muted-foreground">{p.paidAt ? new Date(p.paidAt + 'T00:00:00').toLocaleDateString('es-MX') : '—'}</TableCell>
+                                  <TableCell className="hidden md:table-cell text-muted-foreground max-w-[150px] truncate">{p.notes || '—'}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Extraordinary income history */}
+                  <Card className="shadow-card">
+                    <CardHeader><CardTitle className="font-serif text-base flex items-center gap-2"><Zap className="h-4 w-4 text-primary" /> Ingresos extraordinarios</CardTitle></CardHeader>
+                    <CardContent className="p-0">
+                      {houseHistory.extraordinary.length === 0 ? (
+                        <p className="text-sm text-muted-foreground p-4">Sin ingresos extraordinarios para esta casa.</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Concepto</TableHead>
+                                <TableHead>Categoría</TableHead>
+                                <TableHead>Monto</TableHead>
+                                <TableHead>Fecha</TableHead>
+                                <TableHead className="hidden md:table-cell">Notas</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {houseHistory.extraordinary.map(ext => (
+                                <TableRow key={ext.id}>
+                                  <TableCell className="font-medium">{ext.concept}</TableCell>
+                                  <TableCell><Badge variant="outline">{ext.category}</Badge></TableCell>
+                                  <TableCell>${Number(ext.amount).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</TableCell>
+                                  <TableCell className="text-muted-foreground">{new Date(ext.date + 'T00:00:00').toLocaleDateString('es-MX')}</TableCell>
+                                  <TableCell className="hidden md:table-cell text-muted-foreground max-w-[150px] truncate">{ext.notes || '—'}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </TabsContent>
+          )}
 
           {/* ─── Tab: Deudores ────────────────────────────────────── */}
           {canManage && (
@@ -1038,10 +1360,10 @@ export default function AdminDues() {
           <div className="space-y-4">
             {/* Format info */}
             <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
-              <p className="font-semibold text-foreground">Formato del archivo CSV</p>
+              <p className="font-semibold text-foreground">Formato del archivo CSV / XLS</p>
               <p>Columnas: <code className="bg-muted rounded px-1">Email, Mes, Año, Fecha de pago, Notas</code></p>
-              <p>Ejemplo: <code className="bg-muted rounded px-1">juan@email.com,3,2026,2026-03-10,Recibo #45</code></p>
-              <p>La primera fila puede ser encabezado (se omite). Fecha y notas son opcionales.</p>
+              <p>Ejemplo CSV: <code className="bg-muted rounded px-1">juan@email.com,3,2026,2026-03-10,Recibo #45</code></p>
+              <p>Acepta .csv, .xlsx, .xls. La primera fila puede ser encabezado (se omite). Fecha y notas son opcionales.</p>
             </div>
 
             {/* File picker */}
@@ -1049,12 +1371,12 @@ export default function AdminDues() {
               <input
                 ref={importFileRef}
                 type="file"
-                accept=".csv,.txt"
+                accept=".csv,.txt,.xlsx,.xls"
                 className="hidden"
                 onChange={handleImportFileChange}
               />
               <Button variant="outline" className="gap-2" onClick={() => importFileRef.current?.click()}>
-                <Upload className="h-4 w-4" /> Seleccionar archivo CSV
+                <Upload className="h-4 w-4" /> Seleccionar archivo CSV / XLS
               </Button>
               {importPreviewRows.length > 0 && (
                 <span className="text-sm text-muted-foreground">{importPreviewRows.length} registros detectados</span>
@@ -1283,6 +1605,132 @@ export default function AdminDues() {
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setDeletePromo(null)}>Cancelar</Button>
             <Button variant="destructive" onClick={handlePromoDelete}>Eliminar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Extraordinary income create/edit dialog */}
+      <Dialog open={extDialogOpen} onOpenChange={setExtDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-serif">{editingExt ? 'Editar ingreso' : 'Nuevo ingreso extraordinario'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label>Concepto *</Label>
+              <Input value={extForm.concept} onChange={e => setExtForm(f => ({ ...f, concept: e.target.value }))} placeholder="Ej. Multa por ruido..." />
+            </div>
+            <div className="space-y-1">
+              <Label>Descripción</Label>
+              <Textarea value={extForm.description} onChange={e => setExtForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Descripción opcional..." />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Monto *</Label>
+                <Input type="number" min={0} step={0.01} value={extForm.amount} onChange={e => setExtForm(f => ({ ...f, amount: parseFloat(e.target.value) || 0 }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Fecha *</Label>
+                <Input type="date" value={extForm.date} onChange={e => setExtForm(f => ({ ...f, date: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Categoría</Label>
+                <Select value={extForm.category} onValueChange={v => setExtForm(f => ({ ...f, category: v as any }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent position="popper">
+                    <SelectItem value="multa">Multa</SelectItem>
+                    <SelectItem value="evento">Evento</SelectItem>
+                    <SelectItem value="obra">Obra</SelectItem>
+                    <SelectItem value="cuota_especial">Cuota especial</SelectItem>
+                    <SelectItem value="otro">Otro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Casa (opcional)</Label>
+                <Select value={extForm.houseId || '_'} onValueChange={v => setExtForm(f => ({ ...f, houseId: v === '_' ? '' : v }))}>
+                  <SelectTrigger><SelectValue placeholder="General" /></SelectTrigger>
+                  <SelectContent position="popper">
+                    <SelectItem value="_">General</SelectItem>
+                    {houses.map(h => <SelectItem key={h.id} value={h.id}>Casa {h.houseNumber}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Notas</Label>
+              <Input value={extForm.notes} onChange={e => setExtForm(f => ({ ...f, notes: e.target.value }))} placeholder="Notas opcionales..." />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setExtDialogOpen(false)}>Cancelar</Button>
+              <Button onClick={handleExtSubmit} disabled={extSaving}>{extSaving ? 'Guardando...' : editingExt ? 'Guardar cambios' : 'Crear ingreso'}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete extraordinary confirmation */}
+      <Dialog open={!!deleteExt} onOpenChange={() => setDeleteExt(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Eliminar ingreso extraordinario</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">¿Estás seguro de eliminar <strong>{deleteExt?.concept}</strong>? Esta acción no se puede deshacer.</p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setDeleteExt(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleExtDelete}>Eliminar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Apply promotion dialog */}
+      <Dialog open={applyPromoOpen} onOpenChange={setApplyPromoOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif flex items-center gap-2"><Zap className="h-5 w-5 text-primary" /> Aplicar promoción</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label>Casa</Label>
+              <Select value={applyPromoForm.houseId} onValueChange={v => setApplyPromoForm(f => ({ ...f, houseId: v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecciona una casa..." /></SelectTrigger>
+                <SelectContent position="popper">
+                  {houses.map(h => <SelectItem key={h.id} value={h.id}>Casa {h.houseNumber}{h.address ? ` — ${h.address}` : ''}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Promoción</Label>
+              <Select value={applyPromoForm.promotionId} onValueChange={v => setApplyPromoForm(f => ({ ...f, promotionId: v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecciona una promoción..." /></SelectTrigger>
+                <SelectContent position="popper">
+                  {promotions.filter(p => p.isActive).map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name} — {p.monthCount} mes(es) {p.discountPercentage}% desc.</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Mes inicio</Label>
+                <Select value={String(applyPromoForm.startMonth)} onValueChange={v => setApplyPromoForm(f => ({ ...f, startMonth: Number(v) }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent position="popper">{MONTHS.map((m, i) => <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Año inicio</Label>
+                <Input type="number" value={applyPromoForm.startYear} onChange={e => setApplyPromoForm(f => ({ ...f, startYear: Number(e.target.value) }))} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Fecha de pago (opcional)</Label>
+              <Input type="date" value={applyPromoForm.paidAt} onChange={e => setApplyPromoForm(f => ({ ...f, paidAt: e.target.value }))} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setApplyPromoOpen(false)}>Cancelar</Button>
+              <Button onClick={handleApplyPromo} disabled={applyPromoSaving}>{applyPromoSaving ? 'Aplicando...' : 'Aplicar'}</Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

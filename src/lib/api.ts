@@ -127,7 +127,7 @@ export const housesApi = {
   remove: (id: string) =>
     request<void>(`/houses/${id}`, { method: 'DELETE' }),
   import: (houses: CreateHousePayload[]) =>
-    request<{ created: number; skipped: number; skippedNumbers: string[] }>(
+    request<{ created: number; updated: number; skippedNumbers: string[] }>(
       '/houses/import',
       { method: 'POST', body: JSON.stringify({ houses }) },
     ),
@@ -223,6 +223,36 @@ export const promotionsApi = {
   update: (id: string, data: Partial<CreatePromotionPayload>) =>
     request<import('@/types').DuesPromotion>(`/dues/promotions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   remove: (id: string) => request<void>(`/dues/promotions/${id}`, { method: 'DELETE' }),
+  apply: (data: { houseId: string; promotionId: string; startMonth: number; startYear: number; paidAt?: string }) =>
+    request<{ applied: number }>('/dues/promotions/apply', { method: 'POST', body: JSON.stringify(data) }),
+};
+
+// ─── Extraordinary Income ─────────────────────────────────────────────────────
+export type CreateExtraordinaryPayload = {
+  concept: string;
+  description?: string;
+  amount: number;
+  date: string;
+  category?: import('@/types').ExtraordinaryCategory;
+  houseId?: string;
+  notes?: string;
+};
+
+export const extraordinaryApi = {
+  getAll: () => request<import('@/types').ExtraordinaryIncome[]>('/dues/extraordinary'),
+  create: (data: CreateExtraordinaryPayload) =>
+    request<import('@/types').ExtraordinaryIncome>('/dues/extraordinary', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: CreateExtraordinaryPayload) =>
+    request<import('@/types').ExtraordinaryIncome>(`/dues/extraordinary/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  remove: (id: string) => request<void>(`/dues/extraordinary/${id}`, { method: 'DELETE' }),
+};
+
+// ─── House History ────────────────────────────────────────────────────────────
+export const houseHistoryApi = {
+  get: (houseId: string) =>
+    request<{ payments: import('@/types').DuesPayment[]; extraordinary: import('@/types').ExtraordinaryIncome[] }>(
+      `/dues/houses/${houseId}/history`,
+    ),
 };
 
 // ─── RSVPs ───────────────────────────────────────────────────────────────────
