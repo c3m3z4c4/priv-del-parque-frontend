@@ -39,7 +39,7 @@ interface UserFormDialogProps {
   onOpenChange: (open: boolean) => void;
   user?: User | null;
   onSubmit: (data: CreateUserPayload | UpdateUserPayload) => Promise<void>;
-  houses: { id: string; houseNumber: string }[];
+  houses: { id: string; houseNumber: string; address?: string }[];
 }
 
 export function UserFormDialog({ open, onOpenChange, user, onSubmit, houses }: UserFormDialogProps) {
@@ -263,7 +263,7 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, houses }: U
                       <SelectContent position="popper">
                         <SelectItem value="none">Sin asignar</SelectItem>
                         {houses.map((h) => (
-                          <SelectItem key={h.id} value={h.id}>{h.houseNumber}</SelectItem>
+                          <SelectItem key={h.id} value={h.id}>{h.houseNumber}{h.address ? ` — ${h.address}` : ''}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
