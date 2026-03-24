@@ -61,7 +61,7 @@ export function HouseFormDialog({ open, onOpenChange, house, users, onSubmit }: 
           address: house.address ?? '',
           status: house.status,
           type: house.type ?? 'casa',
-          residentIds: (house.residents ?? []).map(r => r.id),
+          residentIds: (house.residents ?? []).filter(r => r.role === 'VECINO').map(r => r.id),
         });
       } else {
         form.reset({ houseNumber: '', address: '', status: 'active', type: 'casa', residentIds: [] });
