@@ -25,6 +25,7 @@ import VecinoDues from "./pages/vecino/Dues";
 import VecinoProjects from "./pages/vecino/Projects";
 import VecinoGreenArea from "./pages/vecino/GreenAreaRequest";
 import AdminReservations from "./pages/admin/Reservations";
+import AdminBackups from "./pages/admin/Backups";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -69,6 +70,7 @@ const App = () => (
             <Route path="/admin/calendario" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminCalendar /></ProtectedRoute>} />
             <Route path="/admin/proyectos" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminProjects /></ProtectedRoute>} />
             <Route path="/admin/reservaciones" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminReservations /></ProtectedRoute>} />
+            <Route path="/admin/respaldos" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}><AdminBackups /></ProtectedRoute>} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -1,4 +1,9 @@
 import { useState } from 'react';
+import {
+  DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
+  useDroppable, useDraggable, DragStartEvent, DragEndEvent,
+} from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Button } from '@/components/ui/button';
@@ -21,7 +26,7 @@ import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import { projectsApi } from '@/lib/api';
 import type { Project, ProjectStatus } from '@/types';
-import { Plus, Pencil, Trash2, Pause, CheckCircle, PlayCircle, ClipboardList, Eye, EyeOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, Pause, CheckCircle, PlayCircle, ClipboardList, Eye, EyeOff, GripVertical } from 'lucide-react';
 
 const STATUS_CONFIG: Record<ProjectStatus, { label: string; color: string; badgeVariant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
   planned:   { label: 'Planeado',    color: 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700',  badgeVariant: 'secondary' },
@@ -51,6 +56,9 @@ export default function AdminProjects() {
   const [deleteDialog, setDeleteDialog] = useState<Project | null>(null);
   const [editing, setEditing] = useState<Project | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ['projects'],
@@ -122,6 +130,22 @@ export default function AdminProjects() {
     updateMutation.mutate({ id, data });
   }
 
+  function handleDragStart(event: DragStartEvent) {
+    setDraggingId(String(event.active.id));
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setDraggingId(null);
+    const { active, over } = event;
+    if (!over) return;
+    const projectId = String(active.id);
+    const newStatus = String(over.id) as ProjectStatus;
+    if (!KANBAN_COLUMNS.includes(newStatus)) return;
+    const project = projects.find(p => p.id === projectId);
+    if (!project || project.status === newStatus) return;
+    quickUpdate(projectId, { status: newStatus });
+  }
+
   const pausedProjects = projects.filter((p) => p.status === 'paused');
   const kanbanProjects = (status: ProjectStatus) => projects.filter((p) => p.status === status);
 
@@ -172,39 +196,41 @@ export default function AdminProjects() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {KANBAN_COLUMNS.map((colStatus) => {
-              const cfg = STATUS_CONFIG[colStatus];
-              const col = kanbanProjects(colStatus);
-              return (
-                <div key={colStatus} className={`rounded-lg border ${cfg.color} flex flex-col`}>
-                  {/* Column header */}
-                  <div className="flex items-center justify-between border-b px-4 py-3">
-                    <span className="font-semibold text-sm">{cfg.label}</span>
-                    <Badge variant={cfg.badgeVariant} className="text-xs">
-                      {col.length}
-                    </Badge>
-                  </div>
-
-                  {/* Cards */}
-                  <div className="flex flex-col gap-3 p-3 flex-1">
-                    {col.length === 0 && (
-                      <p className="text-center text-xs text-muted-foreground py-6">Sin proyectos</p>
-                    )}
-                    {col.map((project) => (
-                      <ProjectCard
-                        key={project.id}
-                        project={project}
-                        onEdit={() => openEdit(project)}
-                        onDelete={() => setDeleteDialog(project)}
-                        onQuickUpdate={(data) => quickUpdate(project.id, data)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {KANBAN_COLUMNS.map((colStatus) => {
+                const cfg = STATUS_CONFIG[colStatus];
+                const col = kanbanProjects(colStatus);
+                return (
+                  <KanbanColumn
+                    key={colStatus}
+                    colStatus={colStatus}
+                    cfg={cfg}
+                    col={col}
+                    draggingId={draggingId}
+                    onEdit={openEdit}
+                    onDelete={(p) => setDeleteDialog(p)}
+                    onQuickUpdate={(id, data) => quickUpdate(id, data)}
+                  />
+                );
+              })}
+            </div>
+            <DragOverlay>
+              {draggingId ? (() => {
+                const p = projects.find(x => x.id === draggingId);
+                return p ? (
+                  <Card className="shadow-xl rotate-1 opacity-90 w-full">
+                    <CardHeader className="p-3 pb-1">
+                      <CardTitle className="text-sm font-semibold">{p.name}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 pt-0">
+                      <p className="text-xs text-muted-foreground line-clamp-1">{p.description}</p>
+                    </CardContent>
+                  </Card>
+                ) : null;
+              })() : null}
+            </DragOverlay>
+          </DndContext>
         )}
       </div>
 
@@ -303,23 +329,94 @@ export default function AdminProjects() {
   );
 }
 
+// ─── Kanban Column (droppable) ────────────────────────────────────────────────
+function KanbanColumn({
+  colStatus, cfg, col, draggingId, onEdit, onDelete, onQuickUpdate,
+}: {
+  colStatus: ProjectStatus;
+  cfg: typeof STATUS_CONFIG[ProjectStatus];
+  col: Project[];
+  draggingId: string | null;
+  onEdit: (p: Project) => void;
+  onDelete: (p: Project) => void;
+  onQuickUpdate: (id: string, data: { status?: ProjectStatus; visibleToVecinos?: boolean }) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: colStatus });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-lg border flex flex-col transition-colors ${cfg.color} ${isOver ? 'ring-2 ring-primary ring-offset-1' : ''}`}
+    >
+      <div className="flex items-center justify-between border-b px-4 py-3">
+        <span className="font-semibold text-sm">{cfg.label}</span>
+        <Badge variant={cfg.badgeVariant} className="text-xs">{col.length}</Badge>
+      </div>
+      <div className="flex flex-col gap-3 p-3 flex-1 min-h-[120px]">
+        {col.length === 0 && !draggingId && (
+          <p className="text-center text-xs text-muted-foreground py-6">Sin proyectos</p>
+        )}
+        {col.map((project) => (
+          <DraggableCard
+            key={project.id}
+            project={project}
+            onEdit={() => onEdit(project)}
+            onDelete={() => onDelete(project)}
+            onQuickUpdate={(data) => onQuickUpdate(project.id, data)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Draggable Card wrapper ───────────────────────────────────────────────────
+function DraggableCard(props: {
+  project: Project;
+  onEdit: () => void;
+  onDelete: () => void;
+  onQuickUpdate: (data: { status?: ProjectStatus; visibleToVecinos?: boolean }) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: props.project.id });
+  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={isDragging ? 'opacity-30' : ''}
+    >
+      <ProjectCard {...props} dragHandleProps={{ ...attributes, ...listeners }} />
+    </div>
+  );
+}
+
 // ─── Project Card ─────────────────────────────────────────────────────────────
 function ProjectCard({
   project,
   onEdit,
   onDelete,
   onQuickUpdate,
+  dragHandleProps,
 }: {
   project: Project;
   onEdit: () => void;
   onDelete: () => void;
   onQuickUpdate: (data: { status?: ProjectStatus; visibleToVecinos?: boolean }) => void;
+  dragHandleProps?: React.HTMLAttributes<HTMLSpanElement>;
 }) {
   return (
     <Card className="shadow-sm">
       <CardHeader className="p-3 pb-2">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-sm font-semibold leading-tight">{project.name}</CardTitle>
+          <div className="flex items-start gap-1 min-w-0">
+            <span
+              {...dragHandleProps}
+              className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground mt-0.5 shrink-0 touch-none"
+              title="Arrastrar"
+            >
+              <GripVertical className="h-4 w-4" />
+            </span>
+            <CardTitle className="text-sm font-semibold leading-tight">{project.name}</CardTitle>
+          </div>
           <div className="flex shrink-0 gap-1">
             <button
               onClick={onEdit}

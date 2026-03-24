@@ -340,25 +340,35 @@ export const reservationsApi = {
 };
 
 // ─── Backup ───────────────────────────────────────────────────────────────────
+async function downloadBlob(url: string, defaultFilename: string) {
+  const token = getToken();
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).message || `Error ${res.status}`);
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const match = disposition.match(/filename="([^"]+)"/);
+  const filename = match?.[1] ?? defaultFilename;
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+export interface BackupMeta { filename: string; size: number; createdAt: string; }
+export interface BackupConfig { enabled: boolean; cronExpression: string; maxBackups: number; lastRunAt?: string; }
+
 export const backupApi = {
-  download: async (): Promise<void> => {
-    const token = getToken();
-    const res = await fetch(`${BASE_URL}/backup/download`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error((err as any).message || `Error ${res.status}`);
-    }
-    const blob = await res.blob();
-    const disposition = res.headers.get('Content-Disposition') || '';
-    const match = disposition.match(/filename="([^"]+)"/);
-    const filename = match?.[1] ?? `backup_${new Date().toISOString().slice(0, 10)}.sql`;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  },
+  downloadLive: () => downloadBlob(`${BASE_URL}/backup/download`, `backup_${new Date().toISOString().slice(0, 10)}.sql`),
+  trigger: () => request<BackupMeta>('/backup/trigger', { method: 'POST' }),
+  list: () => request<BackupMeta[]>('/backup/list'),
+  downloadFile: (filename: string) => downloadBlob(`${BASE_URL}/backup/file/${encodeURIComponent(filename)}`, filename),
+  deleteFile: (filename: string) => request<void>(`/backup/file/${encodeURIComponent(filename)}`, { method: 'DELETE' }),
+  getSchedule: () => request<BackupConfig>('/backup/schedule'),
+  setSchedule: (data: Partial<BackupConfig>) => request<BackupConfig>('/backup/schedule', { method: 'PATCH', body: JSON.stringify(data) }),
 };
