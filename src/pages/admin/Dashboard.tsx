@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar, TreePine, Home, Users, TrendingUp, Clock, DollarSign, CheckCircle2, FolderKanban, DatabaseBackup, Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { duesApi, projectsApi, backupApi } from '@/lib/api';
+import { WeatherWidget } from '@/components/WeatherWidget';
 import { DuesSummary, Project } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -125,6 +126,9 @@ export default function AdminDashboard() {
             </Button>
           )}
         </div>
+
+        {/* Weather Widget */}
+        <WeatherWidget />
 
         {/* Stat Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

@@ -20,6 +20,7 @@ import {
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { duesApi, projectsApi } from '@/lib/api';
+import { WeatherWidget } from '@/components/WeatherWidget';
 import type { GreenAreaEvent, ProjectStatus } from '@/types';
 import { RsvpButtons } from '@/components/RsvpButtons';
 
@@ -104,6 +105,9 @@ export default function VecinoHome() {
             Mantente al día con tu comunidad
           </p>
         </div>
+
+        {/* ─── Clima ───────────────────────────────────────────────────────── */}
+        <WeatherWidget />
 
         {/* ─── Cuotas ─────────────────────────────────────────────────────── */}
         <section className="space-y-3">
