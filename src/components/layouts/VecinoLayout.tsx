@@ -44,7 +44,7 @@ export function VecinoLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-card shadow-sm">
         <div className="container flex h-20 items-center justify-between">
@@ -162,17 +162,16 @@ export function VecinoLayout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Main Content */}
-      <main className="container py-8">
+      <main className="flex-1 container py-8">
         <div className="animate-fade-in">
           {children}
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="border-t bg-card py-6">
-        <div className="container text-center text-sm text-muted-foreground">
-          <p>© 2026 Privadas del Parque. Todos los derechos reservados.</p>
-          <p className="mt-1">Bienvenido, {user?.name}</p>
+      <footer className="border-t bg-card py-4">
+        <div className="container text-center text-xs text-muted-foreground">
+          © Meza Digital. Todos los Derechos Reservados.
         </div>
       </footer>
     </div>

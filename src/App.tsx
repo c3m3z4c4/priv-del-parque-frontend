@@ -27,6 +27,7 @@ import VecinoGreenArea from "./pages/vecino/GreenAreaRequest";
 import AdminReservations from "./pages/admin/Reservations";
 import AdminBackups from "./pages/admin/Backups";
 import AdminMessages from "./pages/admin/Messages";
+import AdminProfile from "./pages/admin/Profile";
 import VecinoMessages from "./pages/vecino/Messages";
 import NotFound from "./pages/NotFound";
 
@@ -75,7 +76,8 @@ const App = () => (
             <Route path="/admin/reservaciones" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminReservations /></ProtectedRoute>} />
             <Route path="/admin/respaldos" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}><AdminBackups /></ProtectedRoute>} />
             <Route path="/admin/mensajes" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminMessages /></ProtectedRoute>} />
-            
+            <Route path="/admin/perfil" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminProfile /></ProtectedRoute>} />
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

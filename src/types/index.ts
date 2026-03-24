@@ -7,6 +7,7 @@ export interface User {
   email: string;
   phone?: string;
   address?: string;
+  avatarUrl?: string;
   role: UserRole;
   houseId?: string;
   house?: House;

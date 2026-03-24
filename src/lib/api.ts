@@ -1,5 +1,13 @@
 const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
+/** Converts a server-relative path (e.g. /uploads/avatars/x.jpg) to an absolute URL */
+export function toAbsoluteUrl(path: string | undefined | null): string | undefined {
+  if (!path) return undefined;
+  if (path.startsWith('http')) return path;
+  const backendBase = BASE_URL.replace(/\/api\/?$/, '');
+  return `${backendBase}${path}`;
+}
+
 const TOKEN_KEY = 'privadas_token';
 
 export function getToken(): string | null {
@@ -337,6 +345,38 @@ export const reservationsApi = {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
+};
+
+// ─── Profile (own user) ───────────────────────────────────────────────────────
+export type UpdateProfilePayload = {
+  name?: string;
+  lastName?: string;
+  phone?: string;
+  password?: string;
+};
+
+export const profileApi = {
+  getMe: () => request<import('@/types').User>('/users/me'),
+  updateMe: (data: UpdateProfilePayload) =>
+    request<import('@/types').User>('/users/me', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  uploadAvatar: async (file: File): Promise<{ avatarUrl: string }> => {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const res = await fetch(`${BASE_URL}/users/me/avatar`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as any).message || `Error ${res.status}`);
+    }
+    return res.json();
+  },
 };
 
 // ─── User Settings ────────────────────────────────────────────────────────────

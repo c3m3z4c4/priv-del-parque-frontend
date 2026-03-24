@@ -19,6 +19,7 @@ import {
   Leaf,
   HardDrive,
   MessageSquare,
+  UserCircle,
 } from 'lucide-react';
 import { useMessageUnreadCount } from '@/hooks/useMessages';
 import { useState } from 'react';
@@ -39,6 +40,7 @@ const adminLinks = [
   { to: '/admin/proyectos', label: 'Proyectos', icon: ClipboardList },
   { to: '/admin/reservaciones', label: 'Área Verde', icon: Leaf },
   { to: '/admin/mensajes', label: 'Mensajes', icon: MessageSquare },
+  { to: '/admin/perfil', label: 'Mi Perfil', icon: UserCircle },
   { to: '/admin/respaldos', label: 'Respaldos', icon: HardDrive },
 ];
 
@@ -58,7 +60,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
       {/* Mobile Header */}
       <header className="sticky top-0 z-50 flex h-20 items-center justify-between border-b bg-card px-4 lg:hidden">
         <Link to="/admin" className="flex items-center gap-3">
@@ -159,7 +161,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Desktop Layout */}
-      <div className="hidden lg:flex">
+      <div className="hidden flex-1 lg:flex">
         {/* Desktop Sidebar */}
         <aside className={cn(
           "sticky top-0 h-screen bg-sidebar transition-all duration-200",
@@ -266,22 +268,32 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-auto">
-          <div className="container py-8">
+        <main className="flex flex-1 flex-col overflow-auto">
+          <div className="container flex-1 py-8">
             <div className="animate-fade-in">
               {children}
             </div>
           </div>
+          <footer className="border-t bg-card py-4">
+            <div className="container text-center text-xs text-muted-foreground">
+              © Meza Digital. Todos los Derechos Reservados.
+            </div>
+          </footer>
         </main>
       </div>
 
       {/* Mobile Main Content */}
-      <main className="lg:hidden">
-        <div className="container py-8">
+      <main className="flex flex-1 flex-col lg:hidden">
+        <div className="container flex-1 py-8">
           <div className="animate-fade-in">
             {children}
           </div>
         </div>
+        <footer className="border-t bg-card py-4">
+          <div className="container text-center text-xs text-muted-foreground">
+            © Meza Digital. Todos los Derechos Reservados.
+          </div>
+        </footer>
       </main>
     </div>
   );
