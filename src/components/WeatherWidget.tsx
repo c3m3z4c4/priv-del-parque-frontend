@@ -169,85 +169,84 @@ export function WeatherWidget() {
       <div className="relative">
 
         {/* ── Top: location + temp ─────────────────────────────────────────── */}
-        <div className="px-6 pt-5 pb-4 flex items-start justify-between">
+        <div className="px-5 pt-3 pb-2 flex items-start justify-between">
           <div>
             <div className="flex items-center gap-1.5 opacity-90">
-              <MapPin className="h-3.5 w-3.5" />
-              <span className="text-sm font-medium tracking-wide">Durango, Dgo.</span>
+              <MapPin className="h-3 w-3" />
+              <span className="text-xs font-medium tracking-wide">Durango, Dgo.</span>
             </div>
-            <div className="flex items-start leading-none mt-1">
-              <span className="text-8xl font-extralight tracking-tighter">{r(current.temperature_2m)}</span>
-              <span className="text-3xl font-light mt-3 ml-0.5">°C</span>
+            <div className="flex items-start leading-none mt-0.5">
+              <span className="text-6xl font-extralight tracking-tighter">{r(current.temperature_2m)}</span>
+              <span className="text-2xl font-light mt-1.5 ml-0.5">°C</span>
             </div>
-            <p className="text-base mt-1.5 font-medium opacity-90">{wmo.label}</p>
-            <p className="text-sm opacity-70 mt-0.5">
+            <p className="text-sm mt-0.5 font-medium opacity-90">{wmo.label}</p>
+            <p className="text-xs opacity-70">
               Máx {r(daily.temperature_2m_max[0])}° · Mín {r(daily.temperature_2m_min[0])}°
             </p>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <span className="text-7xl" role="img" aria-label={wmo.label}>{wmo.icon}</span>
+          <div className="flex flex-col items-end gap-1.5">
+            <span className="text-5xl" role="img" aria-label={wmo.label}>{wmo.icon}</span>
             <button
               onClick={() => refetch()}
               disabled={isFetching}
-              className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              className="p-1 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
               title="Actualizar clima"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-3 w-3 ${isFetching ? 'animate-spin' : ''}`} />
             </button>
           </div>
         </div>
 
         {/* ── Info pills ───────────────────────────────────────────────────── */}
-        <div className="px-6 pb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-3 py-2.5 flex items-center gap-2">
-            <Droplets className="h-4 w-4 opacity-80 shrink-0" />
+        <div className="px-5 pb-2 grid grid-cols-4 gap-1.5">
+          <div className="bg-white/15 backdrop-blur-sm rounded-xl px-2.5 py-1.5 flex items-center gap-1.5">
+            <Droplets className="h-3.5 w-3.5 opacity-80 shrink-0" />
             <div>
-              <p className="text-xs opacity-70">Humedad</p>
-              <p className="text-sm font-semibold">{current.relative_humidity_2m}%</p>
+              <p className="text-[10px] opacity-70">Humedad</p>
+              <p className="text-xs font-semibold">{current.relative_humidity_2m}%</p>
             </div>
           </div>
-          <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-3 py-2.5 flex items-center gap-2">
-            <Wind className="h-4 w-4 opacity-80 shrink-0" />
+          <div className="bg-white/15 backdrop-blur-sm rounded-xl px-2.5 py-1.5 flex items-center gap-1.5">
+            <Wind className="h-3.5 w-3.5 opacity-80 shrink-0" />
             <div>
-              <p className="text-xs opacity-70">Viento</p>
-              <p className="text-sm font-semibold">{r(current.wind_speed_10m)} km/h</p>
+              <p className="text-[10px] opacity-70">Viento</p>
+              <p className="text-xs font-semibold">{r(current.wind_speed_10m)} km/h</p>
             </div>
           </div>
-          <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-3 py-2.5 flex items-center gap-2">
-            <Thermometer className="h-4 w-4 opacity-80 shrink-0" />
+          <div className="bg-white/15 backdrop-blur-sm rounded-xl px-2.5 py-1.5 flex items-center gap-1.5">
+            <Thermometer className="h-3.5 w-3.5 opacity-80 shrink-0" />
             <div>
-              <p className="text-xs opacity-70">Sensación</p>
-              <p className="text-sm font-semibold">{r(current.apparent_temperature)}°C</p>
+              <p className="text-[10px] opacity-70">Sensación</p>
+              <p className="text-xs font-semibold">{r(current.apparent_temperature)}°C</p>
             </div>
           </div>
-          <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-3 py-2.5 flex items-center gap-2">
-            <Sun className="h-4 w-4 opacity-80 shrink-0" />
+          <div className="bg-white/15 backdrop-blur-sm rounded-xl px-2.5 py-1.5 flex items-center gap-1.5">
+            <Sun className="h-3.5 w-3.5 opacity-80 shrink-0" />
             <div>
-              <p className="text-xs opacity-70">Índice UV</p>
-              <p className="text-sm font-semibold">{r(current.uv_index)} <span className="font-normal opacity-70 text-xs">{uvLabel(current.uv_index)}</span></p>
+              <p className="text-[10px] opacity-70">UV</p>
+              <p className="text-xs font-semibold">{r(current.uv_index)} <span className="font-normal opacity-70">{uvLabel(current.uv_index)}</span></p>
             </div>
           </div>
         </div>
 
         {/* ── Divider ──────────────────────────────────────────────────────── */}
-        <div className="mx-5 h-px bg-white/20" />
+        <div className="mx-4 h-px bg-white/20" />
 
         {/* ── Hourly forecast ──────────────────────────────────────────────── */}
         {hourlySlice.length > 0 && (
-          <div className="px-5 pt-3 pb-2">
-            <p className="text-xs opacity-50 uppercase tracking-widest mb-2">Próximas horas</p>
+          <div className="px-4 pt-2 pb-1.5">
             <div
-              className="flex gap-1 overflow-x-auto pb-1"
+              className="flex gap-1 overflow-x-auto"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
             >
               {hourlySlice.map((h, i) => (
                 <div
                   key={h.time}
-                  className="flex flex-col items-center gap-1.5 min-w-[56px] bg-white/10 rounded-2xl py-2 px-1"
+                  className="flex flex-col items-center gap-1 min-w-[48px] bg-white/10 rounded-xl py-1.5 px-1"
                 >
-                  <span className="text-xs opacity-70">{i === 0 ? 'Ahora' : formatHour(h.time)}</span>
-                  <span className="text-xl leading-none">{getWmo(h.code).icon}</span>
-                  <span className="text-sm font-semibold">{r(h.temp)}°</span>
+                  <span className="text-[10px] opacity-70">{i === 0 ? 'Ahora' : formatHour(h.time)}</span>
+                  <span className="text-base leading-none">{getWmo(h.code).icon}</span>
+                  <span className="text-xs font-semibold">{r(h.temp)}°</span>
                 </div>
               ))}
             </div>
@@ -255,12 +254,11 @@ export function WeatherWidget() {
         )}
 
         {/* ── Divider ──────────────────────────────────────────────────────── */}
-        <div className="mx-5 mt-2 h-px bg-white/20" />
+        <div className="mx-4 mt-1.5 h-px bg-white/20" />
 
         {/* ── 7-day forecast ───────────────────────────────────────────────── */}
-        <div className="px-5 pt-3 pb-5">
-          <p className="text-xs opacity-50 uppercase tracking-widest mb-2">Próximos 7 días</p>
-          <div className="space-y-1.5">
+        <div className="px-4 pt-2 pb-3">
+          <div className="space-y-1">
             {daily.time.map((d, i) => {
               const date = new Date(d + 'T12:00:00');
               const dayLabel = i === 0 ? 'Hoy' : DAYS_ES[date.getDay()];
@@ -268,20 +266,19 @@ export function WeatherWidget() {
               const precip = daily.precipitation_probability_max[i];
               const minT = r(daily.temperature_2m_min[i]);
               const maxT = r(daily.temperature_2m_max[i]);
-              // Bar: position and width as % of overall range
               const barLeft = ((daily.temperature_2m_min[i] - allMin) / tempRange) * 100;
               const barWidth = ((daily.temperature_2m_max[i] - daily.temperature_2m_min[i]) / tempRange) * 100;
 
               return (
                 <div key={d} className="flex items-center gap-2">
-                  <span className="w-9 text-sm font-medium opacity-90">{dayLabel}</span>
-                  <span className="text-lg w-7 text-center leading-none">{icon}</span>
-                  <span className="w-10 text-xs text-sky-200 text-right">
+                  <span className="w-8 text-xs font-medium opacity-90">{dayLabel}</span>
+                  <span className="text-base w-6 text-center leading-none">{icon}</span>
+                  <span className="w-8 text-[10px] text-sky-200 text-right">
                     {precip > 15 ? `${precip}%` : ''}
                   </span>
-                  <div className="flex flex-1 items-center gap-2">
-                    <span className="w-8 text-xs text-right opacity-70">{minT}°</span>
-                    <div className="flex-1 h-1.5 rounded-full bg-white/20 relative overflow-hidden">
+                  <div className="flex flex-1 items-center gap-1.5">
+                    <span className="w-7 text-[10px] text-right opacity-70">{minT}°</span>
+                    <div className="flex-1 h-1 rounded-full bg-white/20 relative overflow-hidden">
                       <div
                         className="absolute top-0 h-full rounded-full"
                         style={{
@@ -293,19 +290,12 @@ export function WeatherWidget() {
                         }}
                       />
                     </div>
-                    <span className="w-8 text-xs font-semibold">{maxT}°</span>
+                    <span className="w-7 text-[10px] font-semibold">{maxT}°</span>
                   </div>
                 </div>
               );
             })}
           </div>
-        </div>
-
-        {/* ── Footer ───────────────────────────────────────────────────────── */}
-        <div className="px-5 pb-3">
-          <p className="text-xs opacity-40 text-right">
-            Fuente: Open-Meteo · Actualiza cada 30 min
-          </p>
         </div>
       </div>
     </div>
