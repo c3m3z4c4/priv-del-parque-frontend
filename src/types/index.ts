@@ -208,6 +208,20 @@ export interface GreenAreaReservation {
   updatedAt: string;
 }
 
+export interface DirectMessage {
+  id: string;
+  senderId: string;
+  sender?: { id: string; name: string; lastName: string; email: string };
+  recipientId: string;
+  recipient?: { id: string; name: string; lastName: string; email: string };
+  subject: string;
+  body: string;
+  read: boolean;
+  isBroadcast: boolean;
+  broadcastId?: string | null;
+  createdAt: string;
+}
+
 export interface AuthState {
   user: User | null;
   token: string | null;

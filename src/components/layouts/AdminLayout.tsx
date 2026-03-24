@@ -18,7 +18,9 @@ import {
   ClipboardList,
   Leaf,
   HardDrive,
+  MessageSquare,
 } from 'lucide-react';
+import { useMessageUnreadCount } from '@/hooks/useMessages';
 import { useState } from 'react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
@@ -36,6 +38,7 @@ const adminLinks = [
   { to: '/admin/cuotas', label: 'Cuotas', icon: DollarSign },
   { to: '/admin/proyectos', label: 'Proyectos', icon: ClipboardList },
   { to: '/admin/reservaciones', label: 'Área Verde', icon: Leaf },
+  { to: '/admin/mensajes', label: 'Mensajes', icon: MessageSquare },
   { to: '/admin/respaldos', label: 'Respaldos', icon: HardDrive },
 ];
 
@@ -46,6 +49,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { theme, setTheme } = useTheme();
+  const { unreadCount: msgUnread } = useMessageUnreadCount();
   const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
 
   const handleLogout = () => {
@@ -69,6 +73,14 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </Link>
         <div className="flex items-center gap-1">
           <NotificationBell />
+          <Button variant="ghost" size="icon" className="relative" onClick={() => navigate('/admin/mensajes')}>
+            <MessageSquare className="h-5 w-5" />
+            {msgUnread > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
+                {msgUnread > 9 ? '9+' : msgUnread}
+              </span>
+            )}
+          </Button>
           <Button
           variant="ghost"
           size="icon"
@@ -99,6 +111,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           {adminLinks.map(link => {
             const Icon = link.icon;
             const isActive = location.pathname === link.to;
+            const isMsgLink = link.to === '/admin/mensajes';
             return (
               <Link key={link.to} to={link.to} onClick={() => setMobileMenuOpen(false)}>
                 <Button
@@ -108,7 +121,14 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                     isActive && "bg-sidebar-accent text-sidebar-accent-foreground"
                   )}
                 >
-                  <Icon className="h-5 w-5" />
+                  <div className="relative shrink-0">
+                    <Icon className="h-5 w-5" />
+                    {isMsgLink && msgUnread > 0 && (
+                      <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-white">
+                        {msgUnread > 9 ? '9+' : msgUnread}
+                      </span>
+                    )}
+                  </div>
                   {link.label}
                 </Button>
               </Link>
@@ -185,6 +205,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             {adminLinks.map(link => {
               const Icon = link.icon;
               const isActive = location.pathname === link.to;
+              const isMsgLink = link.to === '/admin/mensajes';
               return (
                 <Link key={link.to} to={link.to}>
                   <Button
@@ -196,7 +217,14 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                     )}
                     title={!sidebarOpen ? link.label : undefined}
                   >
-                    <Icon className="h-5 w-5 shrink-0" />
+                    <div className="relative shrink-0">
+                      <Icon className="h-5 w-5" />
+                      {isMsgLink && msgUnread > 0 && (
+                        <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-white">
+                          {msgUnread > 9 ? '9+' : msgUnread}
+                        </span>
+                      )}
+                    </div>
                     {sidebarOpen && <span>{link.label}</span>}
                   </Button>
                 </Link>

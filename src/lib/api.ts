@@ -339,6 +339,39 @@ export const reservationsApi = {
     }),
 };
 
+// ─── User Settings ────────────────────────────────────────────────────────────
+export const userSettingsApi = {
+  get: () => request<Record<string, any>>('/user-settings'),
+  update: (patch: Record<string, any>) =>
+    request<Record<string, any>>('/user-settings', {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }),
+};
+
+// ─── Messages ─────────────────────────────────────────────────────────────────
+export type CreateMessagePayload = {
+  recipientId?: string;
+  subject: string;
+  body: string;
+};
+
+export const messagesApi = {
+  send: (data: CreateMessagePayload) =>
+    request<import('@/types').DirectMessage | { sent: number; broadcastId?: string }>(
+      '/messages',
+      { method: 'POST', body: JSON.stringify(data) },
+    ),
+  getInbox: () => request<import('@/types').DirectMessage[]>('/messages/inbox'),
+  getSent: () => request<import('@/types').DirectMessage[]>('/messages/sent'),
+  getUnreadCount: () => request<{ count: number }>('/messages/unread-count'),
+  getOne: (id: string) => request<import('@/types').DirectMessage>(`/messages/${id}`),
+  markAsRead: (id: string) =>
+    request<void>(`/messages/${id}/read`, { method: 'PATCH' }),
+  markAllAsRead: () =>
+    request<void>('/messages/read-all', { method: 'PATCH' }),
+};
+
 // ─── Backup ───────────────────────────────────────────────────────────────────
 async function downloadBlob(url: string, defaultFilename: string) {
   const token = getToken();

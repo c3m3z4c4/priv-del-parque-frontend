@@ -12,11 +12,13 @@ import {
   X,
   ClipboardList,
   Leaf,
+  MessageSquare,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import logo from '@/assets/logo.png';
 import { NotificationBell } from '@/components/NotificationBell';
+import { useMessageUnreadCount } from '@/hooks/useMessages';
 
 const vecinoLinks = [
   { to: '/', label: 'Inicio', icon: Home },
@@ -25,6 +27,7 @@ const vecinoLinks = [
   { to: '/cuotas', label: 'Cuotas', icon: DollarSign },
   { to: '/proyectos', label: 'Proyectos', icon: ClipboardList },
   { to: '/area-verde', label: 'Área Verde', icon: Leaf },
+  { to: '/mensajes', label: 'Mensajes', icon: MessageSquare },
   { to: '/perfil', label: 'Perfil', icon: User },
 ];
 
@@ -33,6 +36,7 @@ export function VecinoLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { unreadCount: msgUnread } = useMessageUnreadCount();
 
   const handleLogout = () => {
     logout();
@@ -62,18 +66,24 @@ export function VecinoLayout({ children }: { children: React.ReactNode }) {
             {vecinoLinks.map(link => {
               const Icon = link.icon;
               const isActive = location.pathname === link.to;
+              const isMsgLink = link.to === '/mensajes';
               return (
                 <Link key={link.to} to={link.to}>
                   <Button
                     variant={isActive ? "default" : "ghost"}
                     size="sm"
                     className={cn(
-                      "gap-2",
+                      "gap-2 relative",
                       isActive && "bg-primary text-primary-foreground"
                     )}
                   >
                     <Icon className="h-4 w-4" />
                     {link.label}
+                    {isMsgLink && msgUnread > 0 && (
+                      <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-white">
+                        {msgUnread > 9 ? '9+' : msgUnread}
+                      </span>
+                    )}
                   </Button>
                 </Link>
               );
@@ -87,15 +97,25 @@ export function VecinoLayout({ children }: { children: React.ReactNode }) {
             </div>
           </nav>
 
-          {/* Mobile Menu Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </Button>
+          {/* Mobile icons + Menu Button */}
+          <div className="flex items-center gap-1 md:hidden">
+            <NotificationBell />
+            <Button variant="ghost" size="icon" className="relative" onClick={() => { navigate('/mensajes'); setMobileMenuOpen(false); }}>
+              <MessageSquare className="h-5 w-5" />
+              {msgUnread > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
+                  {msgUnread > 9 ? '9+' : msgUnread}
+                </span>
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </Button>
+          </div>
         </div>
 
         {/* Mobile Navigation */}
@@ -105,17 +125,23 @@ export function VecinoLayout({ children }: { children: React.ReactNode }) {
               {vecinoLinks.map(link => {
                 const Icon = link.icon;
                 const isActive = location.pathname === link.to;
+                const isMsgLink = link.to === '/mensajes';
                 return (
                   <Link key={link.to} to={link.to} onClick={() => setMobileMenuOpen(false)}>
                     <Button
                       variant={isActive ? "default" : "ghost"}
                       className={cn(
-                        "w-full justify-start gap-2",
+                        "w-full justify-start gap-2 relative",
                         isActive && "bg-primary text-primary-foreground"
                       )}
                     >
                       <Icon className="h-4 w-4" />
                       {link.label}
+                      {isMsgLink && msgUnread > 0 && (
+                        <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
+                          {msgUnread > 9 ? '9+' : msgUnread}
+                        </span>
+                      )}
                     </Button>
                   </Link>
                 );

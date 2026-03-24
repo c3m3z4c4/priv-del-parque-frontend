@@ -21,6 +21,8 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { duesApi, projectsApi } from '@/lib/api';
 import { WeatherWidget } from '@/components/WeatherWidget';
+import { DashboardGrid, WidgetDef } from '@/components/DashboardGrid';
+import { useWidgetLayout } from '@/hooks/useWidgetLayout';
 import type { GreenAreaEvent, ProjectStatus } from '@/types';
 import { RsvpButtons } from '@/components/RsvpButtons';
 
@@ -40,8 +42,9 @@ const STATUS_BADGE: Record<ProjectStatus, 'default' | 'secondary' | 'outline' | 
 };
 
 type CalendarItem = { type: 'event'; data: GreenAreaEvent };
-
 const WEEK_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+const DEFAULT_LAYOUT = ['welcome', 'weather', 'dues', 'projects', 'calendar'];
 
 export default function VecinoHome() {
   const { user } = useAuth();
@@ -51,22 +54,15 @@ export default function VecinoHome() {
   const currentMonth = today.getMonth() + 1;
   const currentYear = today.getFullYear();
 
-  // ─── Cuotas (solo del usuario actual) ────────────────────────────────────
-  const { data: dues = [] } = useQuery({
-    queryKey: ['dues'],
-    queryFn: duesApi.getAll,
-  });
+  const { layout, saveLayout, loaded } = useWidgetLayout('vecinoDashboard', DEFAULT_LAYOUT);
 
-  const thisMonthDue = dues.find(
-    (d) => d.month === currentMonth && d.year === currentYear,
-  );
-  const pendingCount = dues.filter((d) => d.status === 'pending').length;
+  // ─── Cuotas ───────────────────────────────────────────────────────────────
+  const { data: dues = [] } = useQuery({ queryKey: ['dues'], queryFn: duesApi.getAll });
+  const thisMonthDue = dues.find(d => d.month === currentMonth && d.year === currentYear);
+  const pendingCount = dues.filter(d => d.status === 'pending').length;
 
   // ─── Proyectos ────────────────────────────────────────────────────────────
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
-    queryFn: projectsApi.getAll,
-  });
+  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: projectsApi.getAll });
 
   // ─── Calendario ───────────────────────────────────────────────────────────
   const [calMonth, setCalMonth] = useState(new Date());
@@ -74,7 +70,7 @@ export default function VecinoHome() {
 
   const itemsByDate = useMemo(() => {
     const map = new Map<string, CalendarItem[]>();
-    events.forEach((e) => {
+    events.forEach(e => {
       if (!map.has(e.date)) map.set(e.date, []);
       map.get(e.date)!.push({ type: 'event', data: e });
     });
@@ -92,11 +88,12 @@ export default function VecinoHome() {
     return itemsByDate.get(format(selectedDate, 'yyyy-MM-dd')) || [];
   }, [selectedDate, itemsByDate]);
 
-  return (
-    <VecinoLayout>
-      <div className="space-y-8">
-
-        {/* Welcome */}
+  // ─── Widget definitions ────────────────────────────────────────────────────
+  const widgets: WidgetDef[] = [
+    {
+      id: 'welcome',
+      label: 'Bienvenida',
+      render: () => (
         <div className="rounded-2xl bg-gradient-to-r from-primary to-primary/80 p-8 text-primary-foreground shadow-lg">
           <h1 className="font-serif text-3xl font-bold md:text-4xl">
             ¡Bienvenido, {user?.name?.split(' ')[0]}!
@@ -105,11 +102,17 @@ export default function VecinoHome() {
             Mantente al día con tu comunidad
           </p>
         </div>
-
-        {/* ─── Clima ───────────────────────────────────────────────────────── */}
-        <WeatherWidget />
-
-        {/* ─── Cuotas ─────────────────────────────────────────────────────── */}
+      ),
+    },
+    {
+      id: 'weather',
+      label: 'Clima',
+      render: () => <WeatherWidget />,
+    },
+    {
+      id: 'dues',
+      label: 'Mis cuotas',
+      render: () => (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-serif text-xl font-semibold">Mis Cuotas</h2>
@@ -119,9 +122,7 @@ export default function VecinoHome() {
               </Button>
             </Link>
           </div>
-
           <div className="grid gap-4 sm:grid-cols-2">
-            {/* Mes actual */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -132,9 +133,7 @@ export default function VecinoHome() {
               <CardContent>
                 {thisMonthDue ? (
                   <>
-                    <div className="text-2xl font-bold">
-                      ${Number(thisMonthDue.amount).toFixed(2)}
-                    </div>
+                    <div className="text-2xl font-bold">${Number(thisMonthDue.amount).toFixed(2)}</div>
                     <div className="mt-1 flex items-center gap-1.5 text-sm">
                       {thisMonthDue.status === 'paid' && (
                         <span className="flex items-center gap-1 text-green-600">
@@ -156,8 +155,6 @@ export default function VecinoHome() {
                 )}
               </CardContent>
             </Card>
-
-            {/* Pendientes totales */}
             <Card className={pendingCount > 0 ? 'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30' : ''}>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -176,8 +173,12 @@ export default function VecinoHome() {
             </Card>
           </div>
         </section>
-
-        {/* ─── Proyectos del año ───────────────────────────────────────────── */}
+      ),
+    },
+    {
+      id: 'projects',
+      label: 'Proyectos del año',
+      render: () => (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-serif text-xl font-semibold">Proyectos del Año</h2>
@@ -187,7 +188,6 @@ export default function VecinoHome() {
               </Button>
             </Link>
           </div>
-
           {projects.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-10">
@@ -197,22 +197,18 @@ export default function VecinoHome() {
             </Card>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {projects.map((project) => (
+              {projects.map(project => (
                 <Card key={project.id} className="flex flex-col gap-0">
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-sm font-semibold leading-snug">
-                        {project.name}
-                      </CardTitle>
+                      <CardTitle className="text-sm font-semibold leading-snug">{project.name}</CardTitle>
                       <Badge variant={STATUS_BADGE[project.status]} className="shrink-0 text-xs">
                         {STATUS_LABEL[project.status]}
                       </Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {project.description}
-                    </p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{project.description}</p>
                     <div className="space-y-1">
                       <div className="flex justify-between text-xs">
                         <span className="text-muted-foreground">Avance</span>
@@ -226,54 +222,43 @@ export default function VecinoHome() {
             </div>
           )}
         </section>
-
-        {/* ─── Calendario mensual ──────────────────────────────────────────── */}
+      ),
+    },
+    {
+      id: 'calendar',
+      label: 'Agenda del mes',
+      render: () => (
         <section className="space-y-3">
           <h2 className="font-serif text-xl font-semibold">Agenda del Mes</h2>
-
           <div className="grid gap-4 lg:grid-cols-3">
-            {/* Calendario */}
             <Card className="lg:col-span-2">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setCalMonth((m) => subMonths(m, 1))}
-                  >
+                  <Button variant="ghost" size="icon" onClick={() => setCalMonth(m => subMonths(m, 1))}>
                     <ChevronLeft className="h-5 w-5" />
                   </Button>
                   <CardTitle className="font-serif text-lg capitalize">
                     {format(calMonth, 'MMMM yyyy', { locale: es })}
                   </CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setCalMonth((m) => addMonths(m, 1))}
-                  >
+                  <Button variant="ghost" size="icon" onClick={() => setCalMonth(m => addMonths(m, 1))}>
                     <ChevronRight className="h-5 w-5" />
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
-                {/* Headers días */}
                 <div className="grid grid-cols-7 mb-1">
-                  {WEEK_LABELS.map((d) => (
-                    <div key={d} className="py-2 text-center text-xs font-medium text-muted-foreground">
-                      {d}
-                    </div>
+                  {WEEK_LABELS.map(d => (
+                    <div key={d} className="py-2 text-center text-xs font-medium text-muted-foreground">{d}</div>
                   ))}
                 </div>
-                {/* Días */}
                 <div className="grid grid-cols-7">
-                  {calendarDays.map((day) => {
+                  {calendarDays.map(day => {
                     const key = format(day, 'yyyy-MM-dd');
                     const items = itemsByDate.get(key) || [];
-                    const hasEvents = items.some((i) => i.type === 'event');
+                    const hasEvents = items.some(i => i.type === 'event');
                     const isSelected = selectedDate && isSameDay(day, selectedDate);
                     const inMonth = isSameMonth(day, calMonth);
                     const todayDay = isToday(day);
-
                     return (
                       <button
                         key={key}
@@ -298,7 +283,6 @@ export default function VecinoHome() {
                     );
                   })}
                 </div>
-                {/* Leyenda */}
                 <div className="mt-4 flex items-center gap-4 border-t pt-3">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <span className="h-2.5 w-2.5 rounded-full bg-accent" /> Eventos
@@ -307,13 +291,10 @@ export default function VecinoHome() {
               </CardContent>
             </Card>
 
-            {/* Panel del día seleccionado */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">
-                  {selectedDate
-                    ? format(selectedDate, "d 'de' MMMM", { locale: es })
-                    : 'Selecciona un día'}
+                  {selectedDate ? format(selectedDate, "d 'de' MMMM", { locale: es }) : 'Selecciona un día'}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -324,11 +305,8 @@ export default function VecinoHome() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {selectedItems.map((item) => (
-                      <div
-                        key={`event-${item.data.id}`}
-                        className="rounded-lg border border-accent/20 bg-accent/5 p-3"
-                      >
+                    {selectedItems.map(item => (
+                      <div key={`event-${item.data.id}`} className="rounded-lg border border-accent/20 bg-accent/5 p-3">
                         <div className="mb-1.5">
                           <Badge variant="secondary" className="text-[10px]">Evento</Badge>
                         </div>
@@ -360,8 +338,18 @@ export default function VecinoHome() {
             </Card>
           </div>
         </section>
+      ),
+    },
+  ];
 
-      </div>
+  return (
+    <VecinoLayout>
+      <DashboardGrid
+        widgets={widgets}
+        layout={layout}
+        onLayoutChange={saveLayout}
+        loaded={loaded}
+      />
     </VecinoLayout>
   );
 }

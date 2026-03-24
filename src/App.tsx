@@ -26,6 +26,8 @@ import VecinoProjects from "./pages/vecino/Projects";
 import VecinoGreenArea from "./pages/vecino/GreenAreaRequest";
 import AdminReservations from "./pages/admin/Reservations";
 import AdminBackups from "./pages/admin/Backups";
+import AdminMessages from "./pages/admin/Messages";
+import VecinoMessages from "./pages/vecino/Messages";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -59,6 +61,7 @@ const App = () => (
             <Route path="/cuotas" element={<ProtectedRoute allowedRoles={['VECINO']}><VecinoDues /></ProtectedRoute>} />
             <Route path="/proyectos" element={<ProtectedRoute allowedRoles={['VECINO']}><VecinoProjects /></ProtectedRoute>} />
             <Route path="/area-verde" element={<ProtectedRoute allowedRoles={['VECINO']}><VecinoGreenArea /></ProtectedRoute>} />
+            <Route path="/mensajes" element={<ProtectedRoute allowedRoles={['VECINO']}><VecinoMessages /></ProtectedRoute>} />
 
             {/* Admin Routes */}
             <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminDashboard /></ProtectedRoute>} />
@@ -71,6 +74,7 @@ const App = () => (
             <Route path="/admin/proyectos" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminProjects /></ProtectedRoute>} />
             <Route path="/admin/reservaciones" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminReservations /></ProtectedRoute>} />
             <Route path="/admin/respaldos" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}><AdminBackups /></ProtectedRoute>} />
+            <Route path="/admin/mensajes" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO']}><AdminMessages /></ProtectedRoute>} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
