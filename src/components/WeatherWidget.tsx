@@ -152,45 +152,49 @@ export function WeatherWidget() {
 
         {/* LEFT: main temp + pills */}
         <div className="sm:w-52 px-4 py-4 flex flex-col justify-between sm:border-r sm:border-white/10">
-          {/* Location + temp */}
-          <div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1 opacity-80">
-                <MapPin className="h-3 w-3" />
-                <span className="text-xs font-medium">Durango, Dgo.</span>
-              </div>
-              <button
-                onClick={() => refetch()}
-                disabled={isFetching}
-                className="p-1 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                title="Actualizar"
-              >
-                <RefreshCw className={`h-3 w-3 ${isFetching ? 'animate-spin' : ''}`} />
-              </button>
+          {/* Location row */}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1 opacity-80">
+              <MapPin className="h-3.5 w-3.5" />
+              <span className="text-sm font-semibold">Durango, Dgo.</span>
             </div>
-            <div className="flex items-end gap-2 mt-1">
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="p-1 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              title="Actualizar"
+            >
+              <RefreshCw className={`h-3 w-3 ${isFetching ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+
+          {/* Mobile: temp left + condition right. Desktop: stacked */}
+          <div className="flex items-center gap-4 sm:block">
+            <div className="flex items-end gap-2 sm:mt-0">
               <span className="text-5xl font-extralight leading-none">{r(current.temperature_2m)}°</span>
               <span className="text-3xl leading-none mb-0.5">{wmo.icon}</span>
             </div>
-            <p className="text-xs font-medium opacity-85 mt-0.5">{wmo.label}</p>
-            <p className="text-[10px] opacity-60">
-              ↑{r(daily.temperature_2m_max[0])}° ↓{r(daily.temperature_2m_min[0])}°
-            </p>
+            <div className="sm:mt-1">
+              <p className="text-base font-semibold opacity-90 sm:text-xs sm:font-medium sm:opacity-85">{wmo.label}</p>
+              <p className="text-sm opacity-70 sm:text-[10px] sm:opacity-60">
+                ↑{r(daily.temperature_2m_max[0])}° ↓{r(daily.temperature_2m_min[0])}°
+              </p>
+            </div>
           </div>
 
           {/* Pills 2×2 */}
-          <div className="grid grid-cols-2 gap-1">
+          <div className="grid grid-cols-2 gap-1 mt-3 sm:mt-0">
             {[
               { icon: <Droplets className="h-3 w-3" />, label: 'Humedad', val: `${current.relative_humidity_2m}%` },
               { icon: <Wind className="h-3 w-3" />, label: 'Viento', val: `${r(current.wind_speed_10m)} km/h` },
               { icon: <Thermometer className="h-3 w-3" />, label: 'Sensación', val: `${r(current.apparent_temperature)}°` },
               { icon: <Sun className="h-3 w-3" />, label: `UV ${uvLabel(current.uv_index)}`, val: `${r(current.uv_index)}` },
             ].map(p => (
-              <div key={p.label} className="bg-white/10 rounded-lg px-2 py-1 flex items-center gap-1.5">
+              <div key={p.label} className="bg-white/10 rounded-lg px-2 py-1.5 flex items-center gap-1.5">
                 <span className="opacity-70">{p.icon}</span>
                 <div>
                   <p className="text-[9px] opacity-60 leading-none">{p.label}</p>
-                  <p className="text-[11px] font-semibold leading-none mt-0.5">{p.val}</p>
+                  <p className="text-xs font-semibold leading-none mt-0.5 sm:text-[11px]">{p.val}</p>
                 </div>
               </div>
             ))}
