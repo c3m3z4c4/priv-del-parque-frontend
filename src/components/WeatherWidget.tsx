@@ -142,122 +142,140 @@ export function WeatherWidget() {
   const uvLabel = (uv: number) =>
     uv <= 2 ? 'Bajo' : uv <= 5 ? 'Moderado' : uv <= 7 ? 'Alto' : uv <= 10 ? 'Muy alto' : 'Extremo';
 
-  return (
-    <div
-      className="rounded-2xl overflow-hidden shadow-xl text-white h-full"
-      style={{ background: gradient }}
+  const pills = [
+    { icon: <Droplets className="h-3 w-3" />, label: 'Humedad',  val: `${current.relative_humidity_2m}%` },
+    { icon: <Wind className="h-3 w-3" />,     label: 'Viento',   val: `${r(current.wind_speed_10m)} km/h` },
+    { icon: <Thermometer className="h-3 w-3" />, label: 'Sensación', val: `${r(current.apparent_temperature)}°` },
+    { icon: <Sun className="h-3 w-3" />,      label: `UV ${uvLabel(current.uv_index)}`, val: `${r(current.uv_index)}` },
+  ];
+
+  const refreshBtn = (
+    <button
+      onClick={() => refetch()}
+      disabled={isFetching}
+      className="p-1 rounded-full bg-white/10 hover:bg-white/20 transition-colors shrink-0"
+      title="Actualizar"
     >
-      {/* ── Flex row: left info | right forecast ───────────────────────────── */}
-      <div className="flex flex-col sm:flex-row h-full">
+      <RefreshCw className={`h-3 w-3 ${isFetching ? 'animate-spin' : ''}`} />
+    </button>
+  );
 
-        {/* LEFT: main temp + pills */}
-        <div className="sm:w-52 px-4 py-4 flex flex-col justify-between sm:border-r sm:border-white/10">
-          {/* Location row */}
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-1 opacity-80">
-              <MapPin className="h-3.5 w-3.5" />
-              <span className="text-sm font-semibold">Durango, Dgo.</span>
-            </div>
-            <button
-              onClick={() => refetch()}
-              disabled={isFetching}
-              className="p-1 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-              title="Actualizar"
-            >
-              <RefreshCw className={`h-3 w-3 ${isFetching ? 'animate-spin' : ''}`} />
-            </button>
+  const hourlyRow = (
+    <div className="flex gap-1 overflow-x-auto" style={NO_SCROLL}>
+      {hourlySlice.map((h, i) => (
+        <div key={h.time} className="flex flex-col items-center gap-0.5 min-w-[44px] bg-white/10 rounded-xl py-1.5">
+          <span className="text-[10px] opacity-65">{i === 0 ? 'Ahora' : formatHour(h.time)}</span>
+          <span className="text-base leading-none">{getWmo(h.code).icon}</span>
+          <span className="text-xs font-semibold">{r(h.temp)}°</span>
+        </div>
+      ))}
+    </div>
+  );
+
+  const dailyRows = (days: number) => daily.time.slice(0, days).map((d, i) => {
+    const date = new Date(d + 'T12:00:00');
+    const day = i === 0 ? 'Hoy' : DAYS_ES[date.getDay()];
+    const icon = getWmo(daily.weather_code[i]).icon;
+    const precip = daily.precipitation_probability_max[i];
+    const minT = r(daily.temperature_2m_min[i]);
+    const maxT = r(daily.temperature_2m_max[i]);
+    const barLeft = ((daily.temperature_2m_min[i] - allMin) / tempRange) * 100;
+    const barWidth = Math.max(((daily.temperature_2m_max[i] - daily.temperature_2m_min[i]) / tempRange) * 100, 8);
+    return (
+      <div key={d} className="flex items-center gap-1.5 text-xs">
+        <span className="w-7 font-medium opacity-90">{day}</span>
+        <span className="w-5 text-center text-sm leading-none">{icon}</span>
+        <span className="w-7 text-[10px] text-sky-200 text-right">{precip > 15 ? `${precip}%` : ''}</span>
+        <span className="w-6 text-right opacity-60 text-[10px]">{minT}°</span>
+        <div className="flex-1 h-1 rounded-full bg-white/20 relative overflow-hidden">
+          <div className="absolute top-0 h-full rounded-full" style={{
+            left: `${barLeft}%`, width: `${barWidth}%`,
+            background: i === 0 ? 'linear-gradient(90deg,#fbbf24,#f97316)' : 'linear-gradient(90deg,#93c5fd,#60a5fa)',
+          }} />
+        </div>
+        <span className="w-6 font-semibold text-[10px]">{maxT}°</span>
+      </div>
+    );
+  });
+
+  return (
+    <div className="rounded-2xl overflow-hidden shadow-xl text-white h-full" style={{ background: gradient }}>
+
+      {/* ── MOBILE layout (single column, no gaps) ──────────────────────────── */}
+      <div className="sm:hidden px-4 py-3 flex flex-col gap-2">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 opacity-85">
+            <MapPin className="h-3.5 w-3.5" />
+            <span className="text-sm font-semibold">Durango, Dgo.</span>
           </div>
+          {refreshBtn}
+        </div>
 
-          {/* Mobile: temp left + condition right. Desktop: stacked */}
-          <div className="flex items-center gap-4 sm:block">
-            <div className="flex items-end gap-2 sm:mt-0">
+        {/* Temp + condition */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-end gap-2">
+            <span className="text-5xl font-extralight leading-none">{r(current.temperature_2m)}°</span>
+            <span className="text-4xl leading-none">{wmo.icon}</span>
+          </div>
+          <div>
+            <p className="text-xl font-semibold opacity-95">{wmo.label}</p>
+            <p className="text-sm opacity-70">↑{r(daily.temperature_2m_max[0])}° ↓{r(daily.temperature_2m_min[0])}°</p>
+          </div>
+        </div>
+
+        {/* Pills — 4 columns on mobile */}
+        <div className="grid grid-cols-4 gap-1">
+          {pills.map(p => (
+            <div key={p.label} className="bg-white/10 rounded-lg px-1.5 py-1.5 flex flex-col gap-0.5">
+              <div className="flex items-center gap-1 opacity-70">{p.icon}<span className="text-[9px] opacity-60 truncate">{p.label}</span></div>
+              <p className="text-xs font-semibold">{p.val}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="h-px bg-white/20" />
+        {hourlyRow}
+        <div className="h-px bg-white/20" />
+        <div className="space-y-1">{dailyRows(5)}</div>
+      </div>
+
+      {/* ── DESKTOP layout (left panel | right panel) ───────────────────────── */}
+      <div className="hidden sm:flex h-full">
+        {/* Left */}
+        <div className="w-52 px-4 py-4 flex flex-col justify-between border-r border-white/10">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1 opacity-80">
+                <MapPin className="h-3 w-3" />
+                <span className="text-xs font-medium">Durango, Dgo.</span>
+              </div>
+              {refreshBtn}
+            </div>
+            <div className="flex items-end gap-2">
               <span className="text-5xl font-extralight leading-none">{r(current.temperature_2m)}°</span>
               <span className="text-3xl leading-none mb-0.5">{wmo.icon}</span>
             </div>
-            <div className="sm:mt-1">
-              <p className="text-base font-semibold opacity-90 sm:text-xs sm:font-medium sm:opacity-85">{wmo.label}</p>
-              <p className="text-sm opacity-70 sm:text-[10px] sm:opacity-60">
-                ↑{r(daily.temperature_2m_max[0])}° ↓{r(daily.temperature_2m_min[0])}°
-              </p>
-            </div>
+            <p className="text-xs font-medium opacity-85 mt-0.5">{wmo.label}</p>
+            <p className="text-[10px] opacity-60">↑{r(daily.temperature_2m_max[0])}° ↓{r(daily.temperature_2m_min[0])}°</p>
           </div>
-
-          {/* Pills 2×2 */}
-          <div className="grid grid-cols-2 gap-1 mt-3 sm:mt-0">
-            {[
-              { icon: <Droplets className="h-3 w-3" />, label: 'Humedad', val: `${current.relative_humidity_2m}%` },
-              { icon: <Wind className="h-3 w-3" />, label: 'Viento', val: `${r(current.wind_speed_10m)} km/h` },
-              { icon: <Thermometer className="h-3 w-3" />, label: 'Sensación', val: `${r(current.apparent_temperature)}°` },
-              { icon: <Sun className="h-3 w-3" />, label: `UV ${uvLabel(current.uv_index)}`, val: `${r(current.uv_index)}` },
-            ].map(p => (
+          <div className="grid grid-cols-2 gap-1">
+            {pills.map(p => (
               <div key={p.label} className="bg-white/10 rounded-lg px-2 py-1.5 flex items-center gap-1.5">
                 <span className="opacity-70">{p.icon}</span>
                 <div>
                   <p className="text-[9px] opacity-60 leading-none">{p.label}</p>
-                  <p className="text-xs font-semibold leading-none mt-0.5 sm:text-[11px]">{p.val}</p>
+                  <p className="text-[11px] font-semibold leading-none mt-0.5">{p.val}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
-
-        {/* RIGHT: hourly + daily */}
+        {/* Right */}
         <div className="flex-1 px-3 py-4 flex flex-col justify-between gap-2">
-
-          {/* Hourly */}
-          <div className="flex gap-1 overflow-x-auto" style={NO_SCROLL}>
-            {hourlySlice.map((h, i) => (
-              <div
-                key={h.time}
-                className="flex flex-col items-center gap-0.5 min-w-[44px] bg-white/10 rounded-xl py-1.5"
-              >
-                <span className="text-[10px] opacity-65">{i === 0 ? 'Ahora' : formatHour(h.time)}</span>
-                <span className="text-base leading-none">{getWmo(h.code).icon}</span>
-                <span className="text-xs font-semibold">{r(h.temp)}°</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Divider */}
+          {hourlyRow}
           <div className="h-px bg-white/15" />
-
-          {/* Daily — 5 days */}
-          <div className="flex flex-col justify-between flex-1">
-            {daily.time.slice(0, 5).map((d, i) => {
-              const date = new Date(d + 'T12:00:00');
-              const day = i === 0 ? 'Hoy' : DAYS_ES[date.getDay()];
-              const icon = getWmo(daily.weather_code[i]).icon;
-              const precip = daily.precipitation_probability_max[i];
-              const minT = r(daily.temperature_2m_min[i]);
-              const maxT = r(daily.temperature_2m_max[i]);
-              const barLeft = ((daily.temperature_2m_min[i] - allMin) / tempRange) * 100;
-              const barWidth = Math.max(((daily.temperature_2m_max[i] - daily.temperature_2m_min[i]) / tempRange) * 100, 8);
-
-              return (
-                <div key={d} className="flex items-center gap-1.5 text-xs">
-                  <span className="w-7 font-medium opacity-90">{day}</span>
-                  <span className="w-5 text-center text-sm leading-none">{icon}</span>
-                  <span className="w-7 text-[10px] text-sky-200 text-right">
-                    {precip > 15 ? `${precip}%` : ''}
-                  </span>
-                  <span className="w-6 text-right opacity-60 text-[10px]">{minT}°</span>
-                  <div className="flex-1 h-1 rounded-full bg-white/20 relative overflow-hidden">
-                    <div
-                      className="absolute top-0 h-full rounded-full"
-                      style={{
-                        left: `${barLeft}%`,
-                        width: `${barWidth}%`,
-                        background: i === 0
-                          ? 'linear-gradient(90deg,#fbbf24,#f97316)'
-                          : 'linear-gradient(90deg,#93c5fd,#60a5fa)',
-                      }}
-                    />
-                  </div>
-                  <span className="w-6 font-semibold text-[10px]">{maxT}°</span>
-                </div>
-              );
-            })}
-          </div>
+          <div className="flex flex-col justify-between flex-1">{dailyRows(5)}</div>
         </div>
       </div>
     </div>
