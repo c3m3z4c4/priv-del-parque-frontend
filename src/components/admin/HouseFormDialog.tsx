@@ -61,7 +61,7 @@ export function HouseFormDialog({ open, onOpenChange, house, users, onSubmit }: 
           address: house.address ?? '',
           status: house.status,
           type: house.type ?? 'casa',
-          residentIds: (house.residents ?? []).filter(r => r.role === 'VECINO').map(r => r.id),
+          residentIds: (house.residents ?? []).filter(r => !['ADMIN', 'SUPER_ADMIN'].includes(r.role)).map(r => r.id),
         });
       } else {
         form.reset({ houseNumber: '', address: '', status: 'active', type: 'casa', residentIds: [] });
@@ -71,8 +71,9 @@ export function HouseFormDialog({ open, onOpenChange, house, users, onSubmit }: 
 
   const selectedIds = form.watch('residentIds');
 
-  // All VECINOs are available — a vecino can own more than one property
-  const availableUsers = users.filter(u => u.role === 'VECINO');
+  // All non-admin roles can be assigned to a house
+  const ASSIGNABLE_ROLES = ['VECINO', 'PRESIDENTE', 'SECRETARIO', 'TESORERO'];
+  const availableUsers = users.filter(u => ASSIGNABLE_ROLES.includes(u.role));
 
   const filteredUsers = availableUsers.filter(u => {
     const q = userSearch.toLowerCase();
