@@ -29,30 +29,30 @@ interface OpenMeteoResponse {
 }
 
 const WMO: Record<number, { label: string; icon: string }> = {
-  0:  { label: 'Cielo despejado',       icon: '☀️' },
-  1:  { label: 'Mayormente despejado',  icon: '🌤️' },
-  2:  { label: 'Parcialmente nublado',  icon: '⛅' },
-  3:  { label: 'Nublado',               icon: '☁️' },
-  45: { label: 'Neblina',               icon: '🌫️' },
-  48: { label: 'Neblina con escarcha',  icon: '🌫️' },
-  51: { label: 'Llovizna ligera',       icon: '🌦️' },
-  53: { label: 'Llovizna',              icon: '🌦️' },
-  55: { label: 'Llovizna intensa',      icon: '🌧️' },
-  61: { label: 'Lluvia ligera',         icon: '🌧️' },
-  63: { label: 'Lluvia moderada',       icon: '🌧️' },
-  65: { label: 'Lluvia intensa',        icon: '🌧️' },
-  71: { label: 'Nevada ligera',         icon: '🌨️' },
-  73: { label: 'Nevada moderada',       icon: '❄️' },
-  75: { label: 'Nevada intensa',        icon: '❄️' },
-  77: { label: 'Granizo',               icon: '🌨️' },
-  80: { label: 'Chubascos ligeros',     icon: '🌦️' },
-  81: { label: 'Chubascos moderados',   icon: '🌧️' },
-  82: { label: 'Chubascos intensos',    icon: '⛈️' },
-  85: { label: 'Nevada ligera',         icon: '🌨️' },
-  86: { label: 'Nevada intensa',        icon: '❄️' },
-  95: { label: 'Tormenta',             icon: '⛈️' },
-  96: { label: 'Tormenta con granizo',  icon: '⛈️' },
-  99: { label: 'Tormenta con granizo',  icon: '⛈️' },
+  0:  { label: 'Despejado',            icon: '☀️' },
+  1:  { label: 'Mayorm. despejado',    icon: '🌤️' },
+  2:  { label: 'Parcialm. nublado',    icon: '⛅' },
+  3:  { label: 'Nublado',              icon: '☁️' },
+  45: { label: 'Neblina',              icon: '🌫️' },
+  48: { label: 'Neblina c/ escarcha',  icon: '🌫️' },
+  51: { label: 'Llovizna ligera',      icon: '🌦️' },
+  53: { label: 'Llovizna',             icon: '🌦️' },
+  55: { label: 'Llovizna intensa',     icon: '🌧️' },
+  61: { label: 'Lluvia ligera',        icon: '🌧️' },
+  63: { label: 'Lluvia moderada',      icon: '🌧️' },
+  65: { label: 'Lluvia intensa',       icon: '🌧️' },
+  71: { label: 'Nevada ligera',        icon: '🌨️' },
+  73: { label: 'Nevada moderada',      icon: '❄️' },
+  75: { label: 'Nevada intensa',       icon: '❄️' },
+  77: { label: 'Granizo',              icon: '🌨️' },
+  80: { label: 'Chubascos ligeros',    icon: '🌦️' },
+  81: { label: 'Chubascos moderados',  icon: '🌧️' },
+  82: { label: 'Chubascos intensos',   icon: '⛈️' },
+  85: { label: 'Nevada ligera',        icon: '🌨️' },
+  86: { label: 'Nevada intensa',       icon: '❄️' },
+  95: { label: 'Tormenta',            icon: '⛈️' },
+  96: { label: 'Tormenta c/ granizo', icon: '⛈️' },
+  99: { label: 'Tormenta c/ granizo', icon: '⛈️' },
 };
 
 function getWmo(code: number) {
@@ -82,7 +82,7 @@ function r(n: number) { return Math.round(n); }
 
 function formatHour(isoTime: string) {
   const h = parseInt(isoTime.slice(11, 13), 10);
-  return h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`;
+  return h === 0 ? '12a' : h < 12 ? `${h}a` : h === 12 ? '12p' : `${h - 12}p`;
 }
 
 async function fetchWeather(): Promise<OpenMeteoResponse> {
@@ -100,6 +100,8 @@ async function fetchWeather(): Promise<OpenMeteoResponse> {
   return res.json();
 }
 
+const NO_SCROLL: React.CSSProperties = { scrollbarWidth: 'none', msOverflowStyle: 'none' };
+
 export function WeatherWidget() {
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['weather-durango'],
@@ -111,15 +113,9 @@ export function WeatherWidget() {
   if (isLoading) {
     return (
       <div
-        className="rounded-3xl overflow-hidden shadow-xl animate-pulse"
-        style={{ background: 'linear-gradient(160deg, #0284c7 0%, #1d4ed8 100%)', minHeight: 220 }}
-      >
-        <div className="p-6 space-y-4">
-          <div className="h-4 w-32 rounded-full bg-white/20" />
-          <div className="h-16 w-24 rounded-xl bg-white/20" />
-          <div className="h-4 w-48 rounded-full bg-white/20" />
-        </div>
-      </div>
+        className="rounded-2xl overflow-hidden shadow-lg animate-pulse h-40"
+        style={{ background: 'linear-gradient(160deg, #0284c7 0%, #1d4ed8 100%)' }}
+      />
     );
   }
 
@@ -130,168 +126,130 @@ export function WeatherWidget() {
   const isDay = current.is_day === 1;
   const gradient = getGradient(current.weather_code, isDay);
 
-  // Next 12 hours from now
-  const nowIso = new Date().toISOString().slice(0, 13); // "2026-03-24T14"
-  const startIdx = hourly.time.findIndex(t => t >= nowIso) ?? 0;
-  const hourlySlice = Array.from({ length: 12 }, (_, i) => ({
+  // Next 10 hours from now
+  const nowIso = new Date().toISOString().slice(0, 13);
+  const startIdx = Math.max(hourly.time.findIndex(t => t >= nowIso), 0);
+  const hourlySlice = Array.from({ length: 10 }, (_, i) => ({
     time: hourly.time[startIdx + i] ?? '',
     temp: hourly.temperature_2m[startIdx + i] ?? 0,
     code: hourly.weather_code[startIdx + i] ?? 0,
   })).filter(h => h.time);
 
-  // Temperature range for bar normalisation
   const allMin = Math.min(...daily.temperature_2m_min);
   const allMax = Math.max(...daily.temperature_2m_max);
   const tempRange = allMax - allMin || 1;
 
-  const uvLabel = (uv: number) => {
-    if (uv <= 2) return 'Bajo';
-    if (uv <= 5) return 'Moderado';
-    if (uv <= 7) return 'Alto';
-    if (uv <= 10) return 'Muy alto';
-    return 'Extremo';
-  };
+  const uvLabel = (uv: number) =>
+    uv <= 2 ? 'Bajo' : uv <= 5 ? 'Moderado' : uv <= 7 ? 'Alto' : uv <= 10 ? 'Muy alto' : 'Extremo';
 
   return (
     <div
-      className="rounded-3xl overflow-hidden shadow-2xl text-white relative"
+      className="rounded-2xl overflow-hidden shadow-xl text-white"
       style={{ background: gradient }}
     >
-      {/* Subtle noise texture overlay */}
-      <div
-        className="absolute inset-0 opacity-[0.03] pointer-events-none"
-        style={{
-          backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E")',
-        }}
-      />
+      {/* ── Flex row: left info | right forecast ───────────────────────────── */}
+      <div className="flex flex-col sm:flex-row">
 
-      {/* Main content */}
-      <div className="relative">
-
-        {/* ── Top: location + temp ─────────────────────────────────────────── */}
-        <div className="px-5 pt-3 pb-2 flex items-start justify-between">
+        {/* LEFT: main temp + pills */}
+        <div className="sm:w-52 px-4 py-3 flex flex-col justify-between gap-2 sm:border-r sm:border-white/10">
+          {/* Location + temp */}
           <div>
-            <div className="flex items-center gap-1.5 opacity-90">
-              <MapPin className="h-3 w-3" />
-              <span className="text-xs font-medium tracking-wide">Durango, Dgo.</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1 opacity-80">
+                <MapPin className="h-3 w-3" />
+                <span className="text-xs font-medium">Durango, Dgo.</span>
+              </div>
+              <button
+                onClick={() => refetch()}
+                disabled={isFetching}
+                className="p-1 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                title="Actualizar"
+              >
+                <RefreshCw className={`h-3 w-3 ${isFetching ? 'animate-spin' : ''}`} />
+              </button>
             </div>
-            <div className="flex items-start leading-none mt-0.5">
-              <span className="text-6xl font-extralight tracking-tighter">{r(current.temperature_2m)}</span>
-              <span className="text-2xl font-light mt-1.5 ml-0.5">°C</span>
+            <div className="flex items-end gap-2 mt-1">
+              <span className="text-5xl font-extralight leading-none">{r(current.temperature_2m)}°</span>
+              <span className="text-3xl leading-none mb-0.5">{wmo.icon}</span>
             </div>
-            <p className="text-sm mt-0.5 font-medium opacity-90">{wmo.label}</p>
-            <p className="text-xs opacity-70">
-              Máx {r(daily.temperature_2m_max[0])}° · Mín {r(daily.temperature_2m_min[0])}°
+            <p className="text-xs font-medium opacity-85 mt-0.5">{wmo.label}</p>
+            <p className="text-[10px] opacity-60">
+              ↑{r(daily.temperature_2m_max[0])}° ↓{r(daily.temperature_2m_min[0])}°
             </p>
           </div>
-          <div className="flex flex-col items-end gap-1.5">
-            <span className="text-5xl" role="img" aria-label={wmo.label}>{wmo.icon}</span>
-            <button
-              onClick={() => refetch()}
-              disabled={isFetching}
-              className="p-1 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-              title="Actualizar clima"
-            >
-              <RefreshCw className={`h-3 w-3 ${isFetching ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
-        </div>
 
-        {/* ── Info pills ───────────────────────────────────────────────────── */}
-        <div className="px-5 pb-2 grid grid-cols-4 gap-1.5">
-          <div className="bg-white/15 backdrop-blur-sm rounded-xl px-2.5 py-1.5 flex items-center gap-1.5">
-            <Droplets className="h-3.5 w-3.5 opacity-80 shrink-0" />
-            <div>
-              <p className="text-[10px] opacity-70">Humedad</p>
-              <p className="text-xs font-semibold">{current.relative_humidity_2m}%</p>
-            </div>
-          </div>
-          <div className="bg-white/15 backdrop-blur-sm rounded-xl px-2.5 py-1.5 flex items-center gap-1.5">
-            <Wind className="h-3.5 w-3.5 opacity-80 shrink-0" />
-            <div>
-              <p className="text-[10px] opacity-70">Viento</p>
-              <p className="text-xs font-semibold">{r(current.wind_speed_10m)} km/h</p>
-            </div>
-          </div>
-          <div className="bg-white/15 backdrop-blur-sm rounded-xl px-2.5 py-1.5 flex items-center gap-1.5">
-            <Thermometer className="h-3.5 w-3.5 opacity-80 shrink-0" />
-            <div>
-              <p className="text-[10px] opacity-70">Sensación</p>
-              <p className="text-xs font-semibold">{r(current.apparent_temperature)}°C</p>
-            </div>
-          </div>
-          <div className="bg-white/15 backdrop-blur-sm rounded-xl px-2.5 py-1.5 flex items-center gap-1.5">
-            <Sun className="h-3.5 w-3.5 opacity-80 shrink-0" />
-            <div>
-              <p className="text-[10px] opacity-70">UV</p>
-              <p className="text-xs font-semibold">{r(current.uv_index)} <span className="font-normal opacity-70">{uvLabel(current.uv_index)}</span></p>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Divider ──────────────────────────────────────────────────────── */}
-        <div className="mx-4 h-px bg-white/20" />
-
-        {/* ── Hourly forecast ──────────────────────────────────────────────── */}
-        {hourlySlice.length > 0 && (
-          <div className="px-4 pt-2 pb-1.5">
-            <div
-              className="flex gap-1 overflow-x-auto"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
-            >
-              {hourlySlice.map((h, i) => (
-                <div
-                  key={h.time}
-                  className="flex flex-col items-center gap-1 min-w-[48px] bg-white/10 rounded-xl py-1.5 px-1"
-                >
-                  <span className="text-[10px] opacity-70">{i === 0 ? 'Ahora' : formatHour(h.time)}</span>
-                  <span className="text-base leading-none">{getWmo(h.code).icon}</span>
-                  <span className="text-xs font-semibold">{r(h.temp)}°</span>
+          {/* Pills 2×2 */}
+          <div className="grid grid-cols-2 gap-1">
+            {[
+              { icon: <Droplets className="h-3 w-3" />, label: 'Humedad', val: `${current.relative_humidity_2m}%` },
+              { icon: <Wind className="h-3 w-3" />, label: 'Viento', val: `${r(current.wind_speed_10m)} km/h` },
+              { icon: <Thermometer className="h-3 w-3" />, label: 'Sensación', val: `${r(current.apparent_temperature)}°` },
+              { icon: <Sun className="h-3 w-3" />, label: `UV ${uvLabel(current.uv_index)}`, val: `${r(current.uv_index)}` },
+            ].map(p => (
+              <div key={p.label} className="bg-white/10 rounded-lg px-2 py-1 flex items-center gap-1.5">
+                <span className="opacity-70">{p.icon}</span>
+                <div>
+                  <p className="text-[9px] opacity-60 leading-none">{p.label}</p>
+                  <p className="text-[11px] font-semibold leading-none mt-0.5">{p.val}</p>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
 
-        {/* ── Divider ──────────────────────────────────────────────────────── */}
-        <div className="mx-4 mt-1.5 h-px bg-white/20" />
+        {/* RIGHT: hourly + daily */}
+        <div className="flex-1 px-3 py-3 flex flex-col gap-2">
 
-        {/* ── 7-day forecast ───────────────────────────────────────────────── */}
-        <div className="px-4 pt-2 pb-3">
-          <div className="space-y-1">
-            {daily.time.map((d, i) => {
+          {/* Hourly */}
+          <div className="flex gap-1 overflow-x-auto" style={NO_SCROLL}>
+            {hourlySlice.map((h, i) => (
+              <div
+                key={h.time}
+                className="flex flex-col items-center gap-0.5 min-w-[44px] bg-white/10 rounded-xl py-1.5"
+              >
+                <span className="text-[10px] opacity-65">{i === 0 ? 'Ahora' : formatHour(h.time)}</span>
+                <span className="text-base leading-none">{getWmo(h.code).icon}</span>
+                <span className="text-xs font-semibold">{r(h.temp)}°</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Divider */}
+          <div className="h-px bg-white/15" />
+
+          {/* Daily — 5 days */}
+          <div className="space-y-0.5">
+            {daily.time.slice(0, 5).map((d, i) => {
               const date = new Date(d + 'T12:00:00');
-              const dayLabel = i === 0 ? 'Hoy' : DAYS_ES[date.getDay()];
+              const day = i === 0 ? 'Hoy' : DAYS_ES[date.getDay()];
               const icon = getWmo(daily.weather_code[i]).icon;
               const precip = daily.precipitation_probability_max[i];
               const minT = r(daily.temperature_2m_min[i]);
               const maxT = r(daily.temperature_2m_max[i]);
               const barLeft = ((daily.temperature_2m_min[i] - allMin) / tempRange) * 100;
-              const barWidth = ((daily.temperature_2m_max[i] - daily.temperature_2m_min[i]) / tempRange) * 100;
+              const barWidth = Math.max(((daily.temperature_2m_max[i] - daily.temperature_2m_min[i]) / tempRange) * 100, 8);
 
               return (
-                <div key={d} className="flex items-center gap-2">
-                  <span className="w-8 text-xs font-medium opacity-90">{dayLabel}</span>
-                  <span className="text-base w-6 text-center leading-none">{icon}</span>
-                  <span className="w-8 text-[10px] text-sky-200 text-right">
+                <div key={d} className="flex items-center gap-1.5 text-xs">
+                  <span className="w-7 font-medium opacity-90">{day}</span>
+                  <span className="w-5 text-center text-sm leading-none">{icon}</span>
+                  <span className="w-7 text-[10px] text-sky-200 text-right">
                     {precip > 15 ? `${precip}%` : ''}
                   </span>
-                  <div className="flex flex-1 items-center gap-1.5">
-                    <span className="w-7 text-[10px] text-right opacity-70">{minT}°</span>
-                    <div className="flex-1 h-1 rounded-full bg-white/20 relative overflow-hidden">
-                      <div
-                        className="absolute top-0 h-full rounded-full"
-                        style={{
-                          left: `${barLeft}%`,
-                          width: `${Math.max(barWidth, 8)}%`,
-                          background: i === 0
-                            ? 'linear-gradient(90deg, #fbbf24, #f97316)'
-                            : 'linear-gradient(90deg, #93c5fd, #60a5fa)',
-                        }}
-                      />
-                    </div>
-                    <span className="w-7 text-[10px] font-semibold">{maxT}°</span>
+                  <span className="w-6 text-right opacity-60 text-[10px]">{minT}°</span>
+                  <div className="flex-1 h-1 rounded-full bg-white/20 relative overflow-hidden">
+                    <div
+                      className="absolute top-0 h-full rounded-full"
+                      style={{
+                        left: `${barLeft}%`,
+                        width: `${barWidth}%`,
+                        background: i === 0
+                          ? 'linear-gradient(90deg,#fbbf24,#f97316)'
+                          : 'linear-gradient(90deg,#93c5fd,#60a5fa)',
+                      }}
+                    />
                   </div>
+                  <span className="w-6 font-semibold text-[10px]">{maxT}°</span>
                 </div>
               );
             })}

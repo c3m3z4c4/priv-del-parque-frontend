@@ -127,23 +127,23 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        {/* Weather Widget */}
-        <WeatherWidget />
-
-        {/* Stat Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {stats.map(stat => (
-            <Card key={stat.label} className="shadow-card">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">{stat.label}</CardTitle>
-                <stat.icon className={`h-5 w-5 ${stat.color}`} />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground mt-1">{stat.sub}</p>
-              </CardContent>
-            </Card>
-          ))}
+        {/* Weather + Stat Cards side by side */}
+        <div className="grid gap-4 xl:grid-cols-2">
+          <WeatherWidget />
+          <div className="grid grid-cols-2 gap-4">
+            {stats.map(stat => (
+              <Card key={stat.label} className="shadow-card">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">{stat.label}</CardTitle>
+                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{stat.value}</div>
+                  <p className="text-xs text-muted-foreground mt-1">{stat.sub}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
 
         {/* Cuotas + Proyectos row */}
