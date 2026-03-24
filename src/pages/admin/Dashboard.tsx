@@ -32,7 +32,7 @@ export default function AdminDashboard() {
   const handleBackup = async () => {
     setBackupLoading(true);
     try {
-      await backupApi.download();
+      await backupApi.downloadLive();
       toast({ title: 'Respaldo generado', description: 'El archivo SQL se descargó correctamente.' });
     } catch (err: any) {
       toast({ title: 'Error al generar respaldo', description: err.message, variant: 'destructive' });
