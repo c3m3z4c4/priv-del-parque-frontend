@@ -144,14 +144,14 @@ export function WeatherWidget() {
 
   return (
     <div
-      className="rounded-2xl overflow-hidden shadow-xl text-white"
+      className="rounded-2xl overflow-hidden shadow-xl text-white h-full"
       style={{ background: gradient }}
     >
       {/* ── Flex row: left info | right forecast ───────────────────────────── */}
-      <div className="flex flex-col sm:flex-row">
+      <div className="flex flex-col sm:flex-row h-full">
 
         {/* LEFT: main temp + pills */}
-        <div className="sm:w-52 px-4 py-3 flex flex-col justify-between gap-2 sm:border-r sm:border-white/10">
+        <div className="sm:w-52 px-4 py-4 flex flex-col justify-between sm:border-r sm:border-white/10">
           {/* Location + temp */}
           <div>
             <div className="flex items-center justify-between">
@@ -198,7 +198,7 @@ export function WeatherWidget() {
         </div>
 
         {/* RIGHT: hourly + daily */}
-        <div className="flex-1 px-3 py-3 flex flex-col gap-2">
+        <div className="flex-1 px-3 py-4 flex flex-col justify-between gap-2">
 
           {/* Hourly */}
           <div className="flex gap-1 overflow-x-auto" style={NO_SCROLL}>
@@ -218,7 +218,7 @@ export function WeatherWidget() {
           <div className="h-px bg-white/15" />
 
           {/* Daily — 5 days */}
-          <div className="space-y-0.5">
+          <div className="flex flex-col justify-between flex-1">
             {daily.time.slice(0, 5).map((d, i) => {
               const date = new Date(d + 'T12:00:00');
               const day = i === 0 ? 'Hoy' : DAYS_ES[date.getDay()];
