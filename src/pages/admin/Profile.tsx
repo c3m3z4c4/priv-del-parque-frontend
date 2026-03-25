@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Mail, Shield, Camera, Pencil, X, Check, Loader2, Phone } from 'lucide-react';
 import { profileApi, toAbsoluteUrl } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import { cn, compressImage } from '@/lib/utils';
 
 const ROLE_LABEL: Record<string, string> = {
   VECINO: 'Vecino',
@@ -44,7 +44,8 @@ export default function AdminProfile() {
     if (!file) return;
     setUploadingAvatar(true);
     try {
-      const { avatarUrl } = await profileApi.uploadAvatar(file);
+      const compressed = await compressImage(file);
+      const { avatarUrl } = await profileApi.uploadAvatar(compressed);
       updateUser({ ...user!, avatarUrl });
       toast({ title: 'Foto actualizada correctamente' });
     } catch (err: any) {
