@@ -18,7 +18,7 @@ export function DeleteUserDialog({ open, onOpenChange, user, onConfirm }: Delete
         <AlertDialogHeader>
           <AlertDialogTitle className="font-serif">¿Eliminar usuario?</AlertDialogTitle>
           <AlertDialogDescription>
-            Estás a punto de eliminar a <strong>{user?.name} {user?.lastName}</strong> ({user?.email}). Esta acción no se puede deshacer.
+            Estás a punto de eliminar a <strong>{user?.name}</strong> ({user?.email}). Esta acción no se puede deshacer.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

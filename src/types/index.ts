@@ -1,4 +1,19 @@
-export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'VECINO' | 'PRESIDENTE' | 'SECRETARIO' | 'TESORERO';
+export type UserRole =
+  | 'PLATFORM_ADMIN'
+  | 'CONDO_ADMIN'
+  | 'PRESIDENTE'
+  | 'SECRETARIO'
+  | 'TESORERO'
+  | 'RESIDENT';
+
+/** Roles that have access to admin panel */
+export const ADMIN_ROLES: UserRole[] = [
+  'PLATFORM_ADMIN',
+  'CONDO_ADMIN',
+  'PRESIDENTE',
+  'SECRETARIO',
+  'TESORERO',
+];
 
 export interface User {
   id: string;
@@ -7,72 +22,54 @@ export interface User {
   email: string;
   phone?: string;
   address?: string;
-  avatarUrl?: string;
   role: UserRole;
-  houseId?: string;
-  house?: House;
-  isActive?: boolean;
-  createdAt?: string;
+  houseId?: string | null;
+  condominiumId?: string | null;
+  isActive: boolean;
+  avatarUrl?: string | null;
 }
-
-export type HouseType = 'terreno' | 'en_construccion' | 'casa';
 
 export interface House {
   id: string;
   houseNumber: string;
   address?: string;
   status: 'active' | 'inactive';
-  type: HouseType;
+  type?: 'terreno' | 'en_construccion' | 'casa';
   residents?: User[];
   createdAt: string;
+  condominiumId?: string | null;
 }
 
 export interface Meeting {
   id: string;
   title: string;
-  date: string;
-  startTime: string;
-  endTime?: string;
+  description?: string;
   location: string;
-  description: string;
+  date: string;         // YYYY-MM-DD
+  startTime: string;    // HH:MM
+  endTime?: string;
+  status: 'active' | 'cancelled' | 'postponed';
   minutes?: string;
   minutesAgreements?: string;
   minutesResponsibles?: string;
   minutesClosingTime?: string;
-  status: 'active' | 'cancelled' | 'postponed';
-  cancelReason?: string;
-  originalDate?: string;
-  originalStartTime?: string;
-  createdAt: string;
   createdById?: string;
+  createdAt: string;
+  condominiumId?: string | null;
 }
 
 export interface GreenAreaEvent {
   id: string;
   title: string;
+  description?: string;
   greenArea: string;
-  date: string;
-  startTime: string;
+  date: string;         // YYYY-MM-DD
+  startTime: string;    // HH:MM
   endTime?: string;
-  description: string;
   status: 'active' | 'cancelled' | 'postponed';
-  cancelReason?: string;
-  originalDate?: string;
-  originalStartTime?: string;
-  createdAt: string;
   createdById?: string;
-}
-
-export interface Notification {
-  id: string;
-  userId: string;
-  type: 'new_event' | 'new_meeting';
-  title: string;
-  message: string;
-  targetId: string;
-  targetType: 'event' | 'meeting';
-  read: boolean;
   createdAt: string;
+  condominiumId?: string | null;
 }
 
 export type RsvpStatus = 'attending' | 'not_attending' | 'maybe';
@@ -80,152 +77,63 @@ export type RsvpStatus = 'attending' | 'not_attending' | 'maybe';
 export interface Rsvp {
   id: string;
   userId: string;
+  userName: string;
   targetType: 'meeting' | 'event';
   targetId: string;
   status: RsvpStatus;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface DuesConfig {
-  id: string;
-  amount: number;
-  effectiveFrom: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface DuesPayment {
-  id: string;
-  userId: string;
-  houseId?: string;
-  month: number;
-  year: number;
-  amount: number;
-  status: 'paid' | 'pending' | 'exempt';
-  paidAt?: string;
-  notes?: string;
-  createdAt: string;
-  user?: User;
-  house?: House;
-}
-
-export interface DuesSummary {
-  total: number;
-  paid: number;
-  pending: number;
-  exempt: number;
-  totalAmount: number;
-  collectedAmount: number;
-}
-
-export type ProjectStatus = 'planned' | 'started' | 'in_review' | 'completed' | 'paused';
-
-export interface Project {
-  id: string;
-  name: string;
-  description: string;
-  completionPercentage: number;
-  status: ProjectStatus;
-  visibleToVecinos: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface DuesPromotion {
-  id: string;
-  name: string;
-  description?: string;
-  monthCount: number;
-  discountPercentage: number;
-  validFrom: string;
-  validTo: string;
-  isActive: boolean;
-  createdAt: string;
-}
-
-export interface DuesPolicy {
-  id: string;
-  dueDay: number;
-  mobileLockMonths: number;
-  cardLockMonths: number;
-  createdAt: string;
-}
-
-export type ExtraordinaryCategory = 'multa' | 'evento' | 'obra' | 'cuota_especial' | 'otro';
-
-export interface ExtraordinaryIncome {
-  id: string;
-  concept: string;
-  description?: string;
-  amount: number;
-  date: string;
-  category: ExtraordinaryCategory;
-  houseId?: string;
-  notes?: string;
-  createdById?: string;
-  house?: House;
-  createdAt: string;
-}
-
-export type DebtorAccessStatus = 'active' | 'mobile_suspended' | 'card_suspended';
-
-export interface Debtor {
-  userId: string;
-  userName: string;
-  userEmail: string;
-  houseNumber: string;
-  houseAddress: string;
-  pendingMonths: number;
-  accessStatus: DebtorAccessStatus;
-  pendingPayments: { month: number; year: number; amount: number }[];
-}
-
-export type ReservationStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'closed';
-
-export interface GreenAreaReservation {
-  id: string;
-  userId: string;
-  user?: User;
-  greenArea: string;
-  title: string;
-  description?: string;
-  date: string;
-  startTime: string;
-  endTime?: string;
-  status: ReservationStatus;
-  adminNotes?: string;
-  reviewedById?: string;
-  reviewedBy?: User;
-  // Closure
-  closedById?: string;
-  closedBy?: User;
-  closedAt?: string;
-  checklistBanos?: boolean;
-  checklistInstalaciones?: boolean;
-  closureNotes?: string;
-  chargeAmount?: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface DirectMessage {
-  id: string;
-  senderId: string;
-  sender?: { id: string; name: string; lastName: string; email: string };
-  recipientId: string;
-  recipient?: { id: string; name: string; lastName: string; email: string };
-  subject: string;
-  body: string;
-  read: boolean;
-  isBroadcast: boolean;
-  broadcastId?: string | null;
   createdAt: string;
 }
 
 export interface AuthState {
   user: User | null;
-  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+}
+
+// ── Branding ────────────────────────────────────────────────
+
+export interface CondominiumBrandingColors {
+  primary: string;
+  primaryForeground: string;
+  secondary: string;
+  accent: string;
+  background: string;
+  foreground: string;
+  sidebarBg: string;
+  sidebarFg: string;
+  darkPrimary: string | null;
+  darkBackground: string | null;
+  darkSidebarBg: string | null;
+}
+
+export interface CondominiumBrandingFont {
+  family: string;
+  weights: number[];
+}
+
+export interface CondominiumBranding {
+  logoUrl: string | null;
+  logoMarkUrl: string | null;
+  faviconUrl: string | null;
+  appName: string;
+  colors: CondominiumBrandingColors;
+  font: CondominiumBrandingFont;
+  borderRadius: 'none' | 'sm' | 'md' | 'lg' | 'full';
+  welcomeMessage: string | null;
+  supportEmail: string | null;
+  supportPhone: string | null;
+}
+
+export interface Condominium {
+  id: string;
+  name: string;
+  slug: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  contactEmail?: string;
+  phone?: string;
+  status: 'active' | 'suspended' | 'trial' | 'cancelled';
+  branding: CondominiumBranding;
+  createdAt: string;
 }

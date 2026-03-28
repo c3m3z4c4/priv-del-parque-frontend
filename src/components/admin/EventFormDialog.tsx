@@ -28,7 +28,6 @@ const eventSchema = z.object({
   greenArea: z.string().min(1, 'Selecciona un área verde'),
   date: z.date({ required_error: 'La fecha es obligatoria' }),
   startTime: z.string().min(1, 'La hora es obligatoria'),
-  endTime: z.string().optional(),
   description: z.string().trim().max(1000).optional(),
 });
 
@@ -38,11 +37,10 @@ interface EventFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   event?: GreenAreaEvent | null;
-  onSubmit: (data: { title: string; greenArea: string; date: string; startTime: string; endTime?: string; description?: string }) => void;
-  defaultDate?: Date;
+  onSubmit: (data: Record<string, unknown>) => void;
 }
 
-export function EventFormDialog({ open, onOpenChange, event, onSubmit, defaultDate }: EventFormDialogProps) {
+export function EventFormDialog({ open, onOpenChange, event, onSubmit }: EventFormDialogProps) {
   const isEditing = !!event;
 
   const form = useForm<EventFormValues>({
@@ -53,10 +51,9 @@ export function EventFormDialog({ open, onOpenChange, event, onSubmit, defaultDa
           greenArea: event.greenArea,
           date: new Date(event.date + 'T12:00:00'),
           startTime: event.startTime,
-          endTime: event.endTime || '',
           description: event.description || '',
         }
-      : { title: '', greenArea: '', startTime: '', endTime: '', description: '', ...(defaultDate ? { date: defaultDate } : {}) },
+      : { title: '', greenArea: '', startTime: '', description: '' },
   });
 
   const handleSubmit = (values: EventFormValues) => {
@@ -65,7 +62,6 @@ export function EventFormDialog({ open, onOpenChange, event, onSubmit, defaultDa
       greenArea: values.greenArea,
       date: format(values.date, 'yyyy-MM-dd'),
       startTime: values.startTime,
-      endTime: values.endTime || undefined,
       description: values.description || '',
     });
     form.reset();
@@ -105,13 +101,13 @@ export function EventFormDialog({ open, onOpenChange, event, onSubmit, defaultDa
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Área Verde</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || undefined}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecciona un área verde" />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent position="popper">
+                    <SelectContent>
                       {greenAreas.map((area) => (
                         <SelectItem key={area} value={area}>
                           {area}
@@ -166,7 +162,7 @@ export function EventFormDialog({ open, onOpenChange, event, onSubmit, defaultDa
                 name="startTime"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Hora inicio</FormLabel>
+                    <FormLabel>Hora</FormLabel>
                     <FormControl>
                       <Input type="time" {...field} />
                     </FormControl>
@@ -175,20 +171,6 @@ export function EventFormDialog({ open, onOpenChange, event, onSubmit, defaultDa
                 )}
               />
             </div>
-
-            <FormField
-              control={form.control}
-              name="endTime"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Hora fin (opcional)</FormLabel>
-                  <FormControl>
-                    <Input type="time" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <FormField
               control={form.control}

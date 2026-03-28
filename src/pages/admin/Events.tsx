@@ -4,7 +4,7 @@ import { EventFormDialog } from '@/components/admin/EventFormDialog';
 import { DeleteEventDialog } from '@/components/admin/DeleteEventDialog';
 import { TablePagination, paginate } from '@/components/admin/TablePagination';
 import { exportToCSV } from '@/lib/exportCSV';
-import { useEvents } from '@/hooks/useDataStore';
+import { useEventsQuery, useCreateEvent, useUpdateEvent, useDeleteEvent } from '@/hooks/useApi';
 import { GreenAreaEvent } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,26 +14,22 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, TreePine, Calendar, Clock, MapPin, Loader2, Search, Download, Users, Ban, CalendarClock } from 'lucide-react';
+import { Plus, Pencil, Trash2, TreePine, Calendar, Clock, MapPin, Loader2, Search, Download } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { greenAreas } from '@/data/mockData';
 import { RsvpCount } from '@/components/RsvpButtons';
-import { AttendanceDialog } from '@/components/admin/AttendanceDialog';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { CancelDialog } from '@/components/admin/CancelDialog';
-import { PostponeDialog } from '@/components/admin/PostponeDialog';
 
 export default function AdminEvents() {
-  const { events, isLoading, addEvent, updateEvent, deleteEvent, cancelEvent, postponeEvent } = useEvents();
+  const { data: events = [], isLoading } = useEventsQuery();
+  const createEvent = useCreateEvent();
+  const updateEvent = useUpdateEvent();
+  const deleteEvent = useDeleteEvent();
   const { toast } = useToast();
 
   const [formOpen, setFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [attendanceOpen, setAttendanceOpen] = useState(false);
-  const [cancelOpen, setCancelOpen] = useState(false);
-  const [postponeOpen, setPostponeOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<GreenAreaEvent | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'upcoming' | 'past'>('all');
@@ -44,55 +40,31 @@ export default function AdminEvents() {
   const handleCreate = () => { setSelectedEvent(null); setFormOpen(true); };
   const handleEdit = (ev: GreenAreaEvent) => { setSelectedEvent(ev); setFormOpen(true); };
   const handleDelete = (ev: GreenAreaEvent) => { setSelectedEvent(ev); setDeleteOpen(true); };
-  const handleAttendance = (ev: GreenAreaEvent) => { setSelectedEvent(ev); setAttendanceOpen(true); };
-  const handleCancel = (ev: GreenAreaEvent) => { setSelectedEvent(ev); setCancelOpen(true); };
-  const handlePostpone = (ev: GreenAreaEvent) => { setSelectedEvent(ev); setPostponeOpen(true); };
 
-  const handleConfirmCancel = async (reason?: string) => {
-    if (!selectedEvent) return;
-    try {
-      await cancelEvent(selectedEvent.id, reason);
-      toast({ title: 'Evento cancelado', description: `"${selectedEvent.title}" fue cancelado.` });
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message || 'No se pudo cancelar.', variant: 'destructive' });
-      throw e;
-    }
-  };
-
-  const handleConfirmPostpone = async (data: { date: string; startTime: string; endTime?: string }) => {
-    if (!selectedEvent) return;
-    try {
-      await postponeEvent(selectedEvent.id, data);
-      toast({ title: 'Evento pospuesto', description: `"${selectedEvent.title}" fue reprogramado.` });
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message || 'No se pudo posponer.', variant: 'destructive' });
-      throw e;
-    }
-  };
-
-  const handleFormSubmit = async (data: { title: string; greenArea: string; date: string; startTime: string; endTime?: string; description?: string }) => {
+  const handleFormSubmit = async (data: Record<string, unknown>) => {
     try {
       if (selectedEvent) {
-        await updateEvent(selectedEvent.id, data);
+        await updateEvent.mutateAsync({ id: selectedEvent.id, data });
         toast({ title: 'Evento actualizado', description: `"${data.title}" se actualizó correctamente.` });
       } else {
-        await addEvent(data);
+        await createEvent.mutateAsync(data as Parameters<typeof createEvent.mutateAsync>[0]);
         toast({ title: 'Evento creado', description: `"${data.title}" se creó correctamente.` });
       }
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message || 'No se pudo guardar el evento.', variant: 'destructive' });
+      setFormOpen(false);
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo guardar el evento.', variant: 'destructive' });
     }
   };
 
   const handleConfirmDelete = async () => {
     if (selectedEvent) {
       try {
-        await deleteEvent(selectedEvent.id);
+        await deleteEvent.mutateAsync(selectedEvent.id);
         toast({ title: 'Evento eliminado', description: `"${selectedEvent.title}" fue eliminado.`, variant: 'destructive' });
         setDeleteOpen(false);
         setSelectedEvent(null);
-      } catch (e: any) {
-        toast({ title: 'Error', description: e.message || 'No se pudo eliminar el evento.', variant: 'destructive' });
+      } catch {
+        toast({ title: 'Error', description: 'No se pudo eliminar el evento.', variant: 'destructive' });
       }
     }
   };
@@ -226,66 +198,20 @@ export default function AdminEvents() {
                               </span>
                             </TableCell>
                             <TableCell>
-                              {ev.status === 'cancelled' ? (
-                                <Badge variant="destructive">Cancelado</Badge>
-                              ) : ev.status === 'postponed' ? (
-                                <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Pospuesto</Badge>
-                              ) : (
-                                <Badge variant={past ? 'secondary' : 'default'}>{past ? 'Pasado' : 'Próximo'}</Badge>
-                              )}
+                              <Badge variant={past ? 'secondary' : 'default'}>{past ? 'Pasado' : 'Próximo'}</Badge>
                             </TableCell>
                             <TableCell>
                               <RsvpCount targetType="event" targetId={ev.id} />
                             </TableCell>
                             <TableCell className="text-right">
-                              <TooltipProvider>
-                                <div className="flex justify-end gap-1">
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button variant="ghost" size="icon" onClick={() => handleAttendance(ev)} title="Ver asistencia">
-                                        <Users className="h-4 w-4" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Ver asistencia</TooltipContent>
-                                  </Tooltip>
-                                  {ev.status !== 'cancelled' && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" onClick={() => handlePostpone(ev)} title="Posponer">
-                                          <CalendarClock className="h-4 w-4" />
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>Posponer</TooltipContent>
-                                    </Tooltip>
-                                  )}
-                                  {ev.status !== 'cancelled' && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" onClick={() => handleCancel(ev)} title="Cancelar" className="text-amber-600 hover:text-amber-700">
-                                          <Ban className="h-4 w-4" />
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>Cancelar evento</TooltipContent>
-                                    </Tooltip>
-                                  )}
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button variant="ghost" size="icon" onClick={() => handleEdit(ev)} title="Editar">
-                                        <Pencil className="h-4 w-4" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Editar</TooltipContent>
-                                  </Tooltip>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button variant="ghost" size="icon" onClick={() => handleDelete(ev)} title="Eliminar" className="text-destructive hover:text-destructive">
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Eliminar</TooltipContent>
-                                  </Tooltip>
-                                </div>
-                              </TooltipProvider>
+                              <div className="flex justify-end gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => handleEdit(ev)} title="Editar">
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleDelete(ev)} title="Eliminar" className="text-destructive hover:text-destructive">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -302,28 +228,6 @@ export default function AdminEvents() {
 
       <EventFormDialog key={selectedEvent?.id ?? 'new'} open={formOpen} onOpenChange={setFormOpen} event={selectedEvent} onSubmit={handleFormSubmit} />
       <DeleteEventDialog open={deleteOpen} onOpenChange={setDeleteOpen} event={selectedEvent} onConfirm={handleConfirmDelete} />
-      <AttendanceDialog
-        open={attendanceOpen}
-        onOpenChange={setAttendanceOpen}
-        targetType="event"
-        targetId={selectedEvent?.id ?? ''}
-        targetTitle={selectedEvent?.title ?? ''}
-      />
-      <CancelDialog
-        open={cancelOpen}
-        onOpenChange={setCancelOpen}
-        title={selectedEvent?.title ?? ''}
-        onConfirm={handleConfirmCancel}
-      />
-      <PostponeDialog
-        open={postponeOpen}
-        onOpenChange={setPostponeOpen}
-        title={selectedEvent?.title ?? ''}
-        currentDate={selectedEvent?.date}
-        currentStartTime={selectedEvent?.startTime}
-        currentEndTime={selectedEvent?.endTime}
-        onConfirm={handleConfirmPostpone}
-      />
     </AdminLayout>
   );
 }

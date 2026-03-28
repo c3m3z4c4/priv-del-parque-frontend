@@ -1,33 +1,26 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import {
-  Home,
+import { 
+  Home, 
+  Calendar, 
   CalendarDays,
-  TreePine,
-  DollarSign,
-  User,
+  TreePine, 
+  User, 
   LogOut,
   Menu,
-  X,
-  ClipboardList,
-  Leaf,
-  MessageSquare,
+  X
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import logo from '@/assets/logo.png';
 import { NotificationBell } from '@/components/NotificationBell';
-import { useMessageUnreadCount } from '@/hooks/useMessages';
 
 const vecinoLinks = [
   { to: '/', label: 'Inicio', icon: Home },
   { to: '/calendario', label: 'Calendario', icon: CalendarDays },
+  { to: '/reuniones', label: 'Reuniones', icon: Calendar },
   { to: '/eventos', label: 'Eventos', icon: TreePine },
-  { to: '/cuotas', label: 'Cuotas', icon: DollarSign },
-  { to: '/proyectos', label: 'Proyectos', icon: ClipboardList },
-  { to: '/area-verde', label: 'Área Verde', icon: Leaf },
-  { to: '/mensajes', label: 'Mensajes', icon: MessageSquare },
   { to: '/perfil', label: 'Perfil', icon: User },
 ];
 
@@ -36,7 +29,6 @@ export function VecinoLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { unreadCount: msgUnread } = useMessageUnreadCount();
 
   const handleLogout = () => {
     logout();
@@ -44,7 +36,7 @@ export function VecinoLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-card shadow-sm">
         <div className="container flex h-20 items-center justify-between">
@@ -66,24 +58,18 @@ export function VecinoLayout({ children }: { children: React.ReactNode }) {
             {vecinoLinks.map(link => {
               const Icon = link.icon;
               const isActive = location.pathname === link.to;
-              const isMsgLink = link.to === '/mensajes';
               return (
                 <Link key={link.to} to={link.to}>
                   <Button
                     variant={isActive ? "default" : "ghost"}
                     size="sm"
                     className={cn(
-                      "gap-2 relative",
+                      "gap-2",
                       isActive && "bg-primary text-primary-foreground"
                     )}
                   >
                     <Icon className="h-4 w-4" />
                     {link.label}
-                    {isMsgLink && msgUnread > 0 && (
-                      <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-white">
-                        {msgUnread > 9 ? '9+' : msgUnread}
-                      </span>
-                    )}
                   </Button>
                 </Link>
               );
@@ -97,25 +83,15 @@ export function VecinoLayout({ children }: { children: React.ReactNode }) {
             </div>
           </nav>
 
-          {/* Mobile icons + Menu Button */}
-          <div className="flex items-center gap-1 md:hidden">
-            <NotificationBell />
-            <Button variant="ghost" size="icon" className="relative" onClick={() => { navigate('/mensajes'); setMobileMenuOpen(false); }}>
-              <MessageSquare className="h-5 w-5" />
-              {msgUnread > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
-                  {msgUnread > 9 ? '9+' : msgUnread}
-                </span>
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </Button>
-          </div>
+          {/* Mobile Menu Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </Button>
         </div>
 
         {/* Mobile Navigation */}
@@ -125,23 +101,17 @@ export function VecinoLayout({ children }: { children: React.ReactNode }) {
               {vecinoLinks.map(link => {
                 const Icon = link.icon;
                 const isActive = location.pathname === link.to;
-                const isMsgLink = link.to === '/mensajes';
                 return (
                   <Link key={link.to} to={link.to} onClick={() => setMobileMenuOpen(false)}>
                     <Button
                       variant={isActive ? "default" : "ghost"}
                       className={cn(
-                        "w-full justify-start gap-2 relative",
+                        "w-full justify-start gap-2",
                         isActive && "bg-primary text-primary-foreground"
                       )}
                     >
                       <Icon className="h-4 w-4" />
                       {link.label}
-                      {isMsgLink && msgUnread > 0 && (
-                        <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
-                          {msgUnread > 9 ? '9+' : msgUnread}
-                        </span>
-                      )}
                     </Button>
                   </Link>
                 );
@@ -162,16 +132,17 @@ export function VecinoLayout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 container py-8">
+      <main className="container py-8">
         <div className="animate-fade-in">
           {children}
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="border-t bg-card py-4">
-        <div className="container text-center text-xs text-muted-foreground">
-          © Meza Digital. Todos los Derechos Reservados.
+      <footer className="border-t bg-card py-6">
+        <div className="container text-center text-sm text-muted-foreground">
+          <p>© 2024 Privadas del Parque. Todos los derechos reservados.</p>
+          <p className="mt-1">Bienvenido, {user?.name}</p>
         </div>
       </footer>
     </div>

@@ -1,7 +1,7 @@
 import { VecinoLayout } from '@/components/layouts/VecinoLayout';
 import { useMeetings } from '@/hooks/useDataStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Clock, MapPin, FileText, Ban, CalendarClock } from 'lucide-react';
+import { Calendar, Clock, MapPin, FileText } from 'lucide-react';
 import { format, parseISO, isAfter, isBefore } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -41,26 +41,18 @@ export default function VecinoMeetings() {
               {format(parseISO(meeting.date), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
             </CardDescription>
           </div>
-          {meeting.status === 'cancelled' ? (
-            <div className="flex items-center gap-1 rounded-full bg-destructive/10 px-3 py-1 text-xs font-medium text-destructive">
-              <Ban className="h-3 w-3" /> Cancelada
-            </div>
-          ) : meeting.status === 'postponed' ? (
-            <div className="flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
-              <CalendarClock className="h-3 w-3" /> Pospuesta
-            </div>
-          ) : !isPast ? (
+          {!isPast && (
             <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
               Próxima
             </div>
-          ) : null}
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock className="h-4 w-4 text-primary" />
-            <span>{meeting.startTime} hrs</span>
+            <span>{meeting.time} hrs</span>
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <MapPin className="h-4 w-4 text-accent" />
@@ -76,30 +68,7 @@ export default function VecinoMeetings() {
           <p className="text-sm text-muted-foreground">{meeting.description}</p>
         </div>
 
-        {meeting.status === 'cancelled' && meeting.cancelReason && (
-          <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
-            <p className="text-sm text-destructive"><span className="font-medium">Motivo:</span> {meeting.cancelReason}</p>
-          </div>
-        )}
-
-        {meeting.status === 'postponed' && meeting.originalDate && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-            <span className="font-medium">Fecha original:</span> {format(parseISO(meeting.originalDate), "d 'de' MMMM 'de' yyyy", { locale: es })}
-            {meeting.originalStartTime && ` a las ${meeting.originalStartTime}`}
-          </div>
-        )}
-
-        {isPast && meeting.minutes && (
-          <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-primary">
-              <FileText className="h-4 w-4" />
-              Acta de la reunión
-            </div>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{meeting.minutes}</p>
-          </div>
-        )}
-
-        {!isPast && meeting.status !== 'cancelled' && (
+        {!isPast && (
           <div className="border-t pt-3">
             <p className="mb-2 text-xs font-medium text-muted-foreground">¿Asistirás?</p>
             <RsvpButtons targetType="meeting" targetId={meeting.id} />

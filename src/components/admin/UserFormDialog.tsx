@@ -1,9 +1,7 @@
-import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { User } from '@/types';
-import { CreateUserPayload, UpdateUserPayload } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -16,112 +14,62 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 
-const createSchema = z.object({
-  name: z.string().trim().min(1, 'El nombre es obligatorio').max(100),
-  lastName: z.string().trim().min(1, 'El apellido es obligatorio').max(100),
+const userSchema = z.object({
+  name: z.string().trim().min(1, 'El nombre es obligatorio').max(200),
+  lastName: z.string().trim().min(1, 'El apellido es obligatorio').max(200),
   email: z.string().trim().email('Email inválido').max(255),
-  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
-  phone: z.string().trim().optional(),
-  address: z.string().trim().optional(),
-  role: z.enum(['ADMIN', 'VECINO', 'SUPER_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO'], { required_error: 'Selecciona un rol' }),
+  password: z.string().min(6, 'Mínimo 6 caracteres').optional().or(z.literal('')),
+  role: z.enum(['RESIDENT', 'CONDO_ADMIN', 'PRESIDENTE', 'SECRETARIO', 'TESORERO'], { required_error: 'Selecciona un rol' }),
   houseId: z.string().optional(),
 });
 
-const editSchema = createSchema.extend({
-  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres').optional().or(z.literal('')),
-});
-
-type CreateFormValues = z.infer<typeof createSchema>;
-type EditFormValues = z.infer<typeof editSchema>;
+type UserFormValues = z.infer<typeof userSchema>;
 
 interface UserFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   user?: User | null;
-  onSubmit: (data: CreateUserPayload | UpdateUserPayload) => Promise<void>;
-  houses: { id: string; houseNumber: string; address?: string }[];
+  onSubmit: (data: Record<string, unknown>) => void;
+  houses: { id: string; houseNumber: string }[];
 }
 
 export function UserFormDialog({ open, onOpenChange, user, onSubmit, houses }: UserFormDialogProps) {
   const isEditing = !!user;
 
-  const form = useForm<EditFormValues>({
-    resolver: zodResolver(isEditing ? editSchema : createSchema),
-    defaultValues: {
-      name: '',
-      lastName: '',
-      email: '',
-      password: '',
-      phone: '',
-      address: '',
-      role: 'VECINO',
-      houseId: '',
-    },
-  });
-
-  useEffect(() => {
-    if (open) {
-      if (user) {
-        form.reset({
+  const form = useForm<UserFormValues>({
+    resolver: zodResolver(userSchema),
+    defaultValues: user
+      ? {
           name: user.name,
           lastName: user.lastName,
           email: user.email,
           password: '',
-          phone: user.phone ?? '',
-          address: user.address ?? '',
-          role: user.role as 'ADMIN' | 'VECINO' | 'SUPER_ADMIN' | 'PRESIDENTE' | 'SECRETARIO' | 'TESORERO',
-          houseId: user.houseId ?? '',
-        });
-      } else {
-        form.reset({
-          name: '',
-          lastName: '',
-          email: '',
-          password: '',
-          phone: '',
-          address: '',
-          role: 'VECINO',
-          houseId: '',
-        });
-      }
-    }
-  }, [open, user, form]);
+          role: (user.role === 'PLATFORM_ADMIN' ? 'CONDO_ADMIN' : user.role) as UserFormValues['role'],
+          houseId: user.houseId || '',
+        }
+      : { name: '', lastName: '', email: '', password: '', role: 'RESIDENT', houseId: '' },
+  });
 
   const role = form.watch('role');
-  const isSubmitting = form.formState.isSubmitting;
 
-  const handleSubmit = async (values: EditFormValues) => {
-    if (isEditing) {
-      const payload: UpdateUserPayload = {
-        name: values.name,
-        lastName: values.lastName,
-        email: values.email,
-        phone: values.phone || undefined,
-        address: values.address || undefined,
-        role: values.role,
-        houseId: values.role === 'VECINO' ? (values.houseId || undefined) : undefined,
-      };
-      if (values.password) payload.password = values.password;
-      await onSubmit(payload);
-    } else {
-      const payload: CreateUserPayload = {
-        name: values.name,
-        lastName: values.lastName,
-        email: values.email,
-        password: values.password as string,
-        phone: values.phone || undefined,
-        address: values.address || undefined,
-        role: values.role,
-        houseId: values.role === 'VECINO' ? (values.houseId || undefined) : undefined,
-      };
-      await onSubmit(payload);
+  const handleSubmit = (values: UserFormValues) => {
+    const payload: Record<string, unknown> = {
+      name: values.name,
+      lastName: values.lastName,
+      email: values.email,
+      role: values.role,
+      houseId: values.role === 'RESIDENT' ? values.houseId || undefined : undefined,
+    };
+    if (values.password) {
+      payload.password = values.password;
     }
-    onOpenChange(false);
+    onSubmit(payload);
+    form.reset();
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl">
             {isEditing ? 'Editar Usuario' : 'Nuevo Usuario'}
@@ -151,9 +99,9 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, houses }: U
                 name="lastName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Apellidos</FormLabel>
+                    <FormLabel>Apellido</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ej: Pérez García" {...field} />
+                      <Input placeholder="Ej: Pérez" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -180,90 +128,57 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, houses }: U
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{isEditing ? 'Nueva contraseña (dejar en blanco para no cambiar)' : 'Contraseña'}</FormLabel>
+                  <FormLabel>{isEditing ? 'Nueva contraseña (opcional)' : 'Contraseña'}</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder={isEditing ? 'Sin cambios' : 'Mínimo 6 caracteres'} {...field} />
+                    <Input type="password" placeholder="Mínimo 6 caracteres" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Teléfono</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ej: 55 1234 5678" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Rol</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona un rol" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent position="popper">
-                        <SelectItem value="VECINO">Vecino</SelectItem>
-                        <SelectItem value="ADMIN">Administrador</SelectItem>
-                        <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
-                        <SelectItem value="PRESIDENTE">Presidente</SelectItem>
-                        <SelectItem value="SECRETARIO">Secretario</SelectItem>
-                        <SelectItem value="TESORERO">Tesorero</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
 
             <FormField
               control={form.control}
-              name="address"
+              name="role"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Dirección</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ej: Calle Principal 123" {...field} />
-                  </FormControl>
+                  <FormLabel>Rol</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona un rol" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="RESIDENT">Vecino</SelectItem>
+                      <SelectItem value="CONDO_ADMIN">Administrador</SelectItem>
+                      <SelectItem value="PRESIDENTE">Presidente</SelectItem>
+                      <SelectItem value="SECRETARIO">Secretario</SelectItem>
+                      <SelectItem value="TESORERO">Tesorero</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            {role === 'VECINO' && (
+            {role === 'RESIDENT' && (
               <FormField
                 control={form.control}
                 name="houseId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Casa asignada</FormLabel>
-                    <Select
-                      onValueChange={(v) => field.onChange(v === 'none' ? '' : v)}
-                      value={field.value || 'none'}
-                    >
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Sin asignar" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent position="popper">
-                        <SelectItem value="none">Sin asignar</SelectItem>
+                      <SelectContent>
+                        <SelectItem value="">Sin asignar</SelectItem>
                         {houses.map((h) => (
-                          <SelectItem key={h.id} value={h.id}>{h.houseNumber}{h.address ? ` — ${h.address}` : ''}</SelectItem>
+                          <SelectItem key={h.id} value={h.id}>{h.houseNumber}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -274,11 +189,11 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, houses }: U
             )}
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Guardando...' : isEditing ? 'Guardar Cambios' : 'Crear Usuario'}
+              <Button type="submit">
+                {isEditing ? 'Guardar Cambios' : 'Crear Usuario'}
               </Button>
             </DialogFooter>
           </form>

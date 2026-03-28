@@ -1,220 +1,220 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Meeting, GreenAreaEvent, House, User, Rsvp, RsvpStatus } from '@/types';
-import {
-  usersApi, housesApi, meetingsApi, eventsApi, rsvpsApi,
-  CreateUserPayload, UpdateUserPayload, CreateHousePayload, UpdateHousePayload,
-  CreateMeetingPayload, CreateEventPayload,
-} from '@/lib/api';
+import { mockMeetings, mockEvents, mockHouses, mockUsers } from '@/data/mockData';
 
-// Meetings Hook (API-based)
+const MEETINGS_KEY = 'privadas_meetings';
+const EVENTS_KEY = 'privadas_events';
+const HOUSES_KEY = 'privadas_houses';
+const USERS_KEY = 'privadas_users';
+const RSVPS_KEY = 'privadas_rsvps';
+
+function getStoredData<T>(key: string, defaultData: T[]): T[] {
+  const stored = localStorage.getItem(key);
+  if (stored) {
+    try {
+      return JSON.parse(stored);
+    } catch {
+      return defaultData;
+    }
+  }
+  localStorage.setItem(key, JSON.stringify(defaultData));
+  return defaultData;
+}
+
+function setStoredData<T>(key: string, data: T[]) {
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+// Meetings Hook
 export function useMeetings() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    try {
-      const data = await meetingsApi.getAll();
-      setMeetings(data);
-    } catch (e) {
-      console.error('Error loading meetings:', e);
-    } finally {
-      setIsLoading(false);
-    }
+  useEffect(() => {
+    setMeetings(getStoredData(MEETINGS_KEY, mockMeetings));
+    setIsLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-
-  const addMeeting = async (data: CreateMeetingPayload): Promise<Meeting> => {
-    const meeting = await meetingsApi.create(data);
-    setMeetings(prev => [...prev, meeting]);
-    return meeting;
+  const addMeeting = (meeting: Omit<Meeting, 'id' | 'createdAt'>) => {
+    const newMeeting: Meeting = {
+      ...meeting,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    const updated = [...meetings, newMeeting];
+    setMeetings(updated);
+    setStoredData(MEETINGS_KEY, updated);
+    return newMeeting;
   };
 
-  const updateMeeting = async (id: string, data: Partial<CreateMeetingPayload>): Promise<Meeting> => {
-    const meeting = await meetingsApi.update(id, data);
-    setMeetings(prev => prev.map(m => m.id === id ? meeting : m));
-    return meeting;
+  const updateMeeting = (id: string, data: Partial<Meeting>) => {
+    const updated = meetings.map(m => m.id === id ? { ...m, ...data } : m);
+    setMeetings(updated);
+    setStoredData(MEETINGS_KEY, updated);
   };
 
-  const deleteMeeting = async (id: string): Promise<void> => {
-    await meetingsApi.remove(id);
-    setMeetings(prev => prev.filter(m => m.id !== id));
+  const deleteMeeting = (id: string) => {
+    const updated = meetings.filter(m => m.id !== id);
+    setMeetings(updated);
+    setStoredData(MEETINGS_KEY, updated);
   };
 
-  const cancelMeeting = async (id: string, reason?: string): Promise<Meeting> => {
-    const meeting = await meetingsApi.cancel(id, reason);
-    setMeetings(prev => prev.map(m => m.id === id ? meeting : m));
-    return meeting;
-  };
-
-  const postponeMeeting = async (id: string, data: { date: string; startTime: string; endTime?: string }): Promise<Meeting> => {
-    const meeting = await meetingsApi.postpone(id, data);
-    setMeetings(prev => prev.map(m => m.id === id ? meeting : m));
-    return meeting;
-  };
-
-  return { meetings, isLoading, addMeeting, updateMeeting, deleteMeeting, cancelMeeting, postponeMeeting };
+  return { meetings, isLoading, addMeeting, updateMeeting, deleteMeeting };
 }
 
-// Events Hook (API-based)
+// Events Hook
 export function useEvents() {
   const [events, setEvents] = useState<GreenAreaEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    try {
-      const data = await eventsApi.getAll();
-      setEvents(data);
-    } catch (e) {
-      console.error('Error loading events:', e);
-    } finally {
-      setIsLoading(false);
-    }
+  useEffect(() => {
+    setEvents(getStoredData(EVENTS_KEY, mockEvents));
+    setIsLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-
-  const addEvent = async (data: CreateEventPayload): Promise<GreenAreaEvent> => {
-    const event = await eventsApi.create(data);
-    setEvents(prev => [...prev, event]);
-    return event;
+  const addEvent = (event: Omit<GreenAreaEvent, 'id' | 'createdAt'>) => {
+    const newEvent: GreenAreaEvent = {
+      ...event,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    const updated = [...events, newEvent];
+    setEvents(updated);
+    setStoredData(EVENTS_KEY, updated);
+    return newEvent;
   };
 
-  const updateEvent = async (id: string, data: Partial<CreateEventPayload>): Promise<GreenAreaEvent> => {
-    const event = await eventsApi.update(id, data);
-    setEvents(prev => prev.map(e => e.id === id ? event : e));
-    return event;
+  const updateEvent = (id: string, data: Partial<GreenAreaEvent>) => {
+    const updated = events.map(e => e.id === id ? { ...e, ...data } : e);
+    setEvents(updated);
+    setStoredData(EVENTS_KEY, updated);
   };
 
-  const deleteEvent = async (id: string): Promise<void> => {
-    await eventsApi.remove(id);
-    setEvents(prev => prev.filter(e => e.id !== id));
+  const deleteEvent = (id: string) => {
+    const updated = events.filter(e => e.id !== id);
+    setEvents(updated);
+    setStoredData(EVENTS_KEY, updated);
   };
 
-  const cancelEvent = async (id: string, reason?: string): Promise<GreenAreaEvent> => {
-    const event = await eventsApi.cancel(id, reason);
-    setEvents(prev => prev.map(e => e.id === id ? event : e));
-    return event;
-  };
-
-  const postponeEvent = async (id: string, data: { date: string; startTime: string; endTime?: string }): Promise<GreenAreaEvent> => {
-    const event = await eventsApi.postpone(id, data);
-    setEvents(prev => prev.map(e => e.id === id ? event : e));
-    return event;
-  };
-
-  return { events, isLoading, addEvent, updateEvent, deleteEvent, cancelEvent, postponeEvent };
+  return { events, isLoading, addEvent, updateEvent, deleteEvent };
 }
 
-// Houses Hook (API-based)
+// Houses Hook
 export function useHouses() {
   const [houses, setHouses] = useState<House[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    try {
-      const data = await housesApi.getAll();
-      setHouses(data);
-    } catch (e) {
-      console.error('Error loading houses:', e);
-    } finally {
-      setIsLoading(false);
-    }
+  useEffect(() => {
+    setHouses(getStoredData(HOUSES_KEY, mockHouses));
+    setIsLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-
-  const addHouse = async (data: CreateHousePayload): Promise<House> => {
-    const house = await housesApi.create(data);
-    setHouses(prev => [...prev, house]);
-    return house;
+  const addHouse = (house: Omit<House, 'id' | 'createdAt'>) => {
+    const newHouse: House = {
+      ...house,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    const updated = [...houses, newHouse];
+    setHouses(updated);
+    setStoredData(HOUSES_KEY, updated);
+    return newHouse;
   };
 
-  const updateHouse = async (id: string, data: UpdateHousePayload): Promise<House> => {
-    const house = await housesApi.update(id, data);
-    setHouses(prev => prev.map(h => h.id === id ? house : h));
-    return house;
+  const updateHouse = (id: string, data: Partial<House>) => {
+    const updated = houses.map(h => h.id === id ? { ...h, ...data } : h);
+    setHouses(updated);
+    setStoredData(HOUSES_KEY, updated);
   };
 
-  const deleteHouse = async (id: string): Promise<void> => {
-    await housesApi.remove(id);
-    setHouses(prev => prev.filter(h => h.id !== id));
+  const deleteHouse = (id: string) => {
+    const updated = houses.filter(h => h.id !== id);
+    setHouses(updated);
+    setStoredData(HOUSES_KEY, updated);
   };
 
-  return { houses, isLoading, addHouse, updateHouse, deleteHouse, refetch: load };
+  return { houses, isLoading, addHouse, updateHouse, deleteHouse };
 }
 
-// Users Hook (API-based)
+// Users Hook
 export function useUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    try {
-      const data = await usersApi.getAll();
-      setUsers(data);
-    } catch (e) {
-      console.error('Error loading users:', e);
-    } finally {
-      setIsLoading(false);
-    }
+  useEffect(() => {
+    setUsers(getStoredData(USERS_KEY, mockUsers));
+    setIsLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-
-  const addUser = async (data: CreateUserPayload): Promise<User> => {
-    const user = await usersApi.create(data);
-    setUsers(prev => [...prev, user]);
-    return user;
+  const addUser = (user: Omit<User, 'id'>) => {
+    const newUser: User = {
+      ...user,
+      id: Date.now().toString(),
+    };
+    const updated = [...users, newUser];
+    setUsers(updated);
+    setStoredData(USERS_KEY, updated);
+    return newUser;
   };
 
-  const updateUser = async (id: string, data: UpdateUserPayload): Promise<User> => {
-    const user = await usersApi.update(id, data);
-    setUsers(prev => prev.map(u => u.id === id ? user : u));
-    return user;
+  const updateUser = (id: string, data: Partial<User>) => {
+    const updated = users.map(u => u.id === id ? { ...u, ...data } : u);
+    setUsers(updated);
+    setStoredData(USERS_KEY, updated);
   };
 
-  const deleteUser = async (id: string): Promise<void> => {
-    await usersApi.remove(id);
-    setUsers(prev => prev.filter(u => u.id !== id));
+  const deleteUser = (id: string) => {
+    const updated = users.filter(u => u.id !== id);
+    setUsers(updated);
+    setStoredData(USERS_KEY, updated);
   };
 
-  return { users, isLoading, addUser, updateUser, deleteUser, refetch: load };
+  return { users, isLoading, addUser, updateUser, deleteUser };
 }
 
-// RSVP Hook (API-based)
+// RSVP Hook
 export function useRsvps() {
   const [rsvps, setRsvps] = useState<Rsvp[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    try {
-      const data = await rsvpsApi.getAll();
-      setRsvps(data);
-    } catch (e) {
-      console.error('Error loading rsvps:', e);
-    } finally {
-      setIsLoading(false);
-    }
+  useEffect(() => {
+    setRsvps(getStoredData<Rsvp>(RSVPS_KEY, []));
+    setIsLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-
-  const setRsvp = useCallback(async (_userId: string, _userName: string, targetType: 'meeting' | 'event', targetId: string, status: RsvpStatus) => {
-    const rsvp = await rsvpsApi.upsert(targetType, targetId, status);
+  const setRsvp = useCallback((userId: string, userName: string, targetType: 'meeting' | 'event', targetId: string, status: RsvpStatus) => {
     setRsvps(prev => {
-      const idx = prev.findIndex(r => r.targetType === targetType && r.targetId === targetId);
-      return idx >= 0 ? prev.map((r, i) => i === idx ? rsvp : r) : [...prev, rsvp];
+      const existing = prev.findIndex(r => r.userId === userId && r.targetType === targetType && r.targetId === targetId);
+      let updated: Rsvp[];
+      if (existing >= 0) {
+        updated = prev.map((r, i) => i === existing ? { ...r, status } : r);
+      } else {
+        const newRsvp: Rsvp = {
+          id: Date.now().toString(),
+          userId,
+          userName,
+          targetType,
+          targetId,
+          status,
+          createdAt: new Date().toISOString(),
+        };
+        updated = [...prev, newRsvp];
+      }
+      setStoredData(RSVPS_KEY, updated);
+      return updated;
     });
   }, []);
 
-  const removeRsvp = useCallback(async (_userId: string, targetType: 'meeting' | 'event', targetId: string) => {
-    await rsvpsApi.remove(targetType, targetId);
-    setRsvps(prev => prev.filter(r => !(r.targetType === targetType && r.targetId === targetId)));
+  const removeRsvp = useCallback((userId: string, targetType: 'meeting' | 'event', targetId: string) => {
+    setRsvps(prev => {
+      const updated = prev.filter(r => !(r.userId === userId && r.targetType === targetType && r.targetId === targetId));
+      setStoredData(RSVPS_KEY, updated);
+      return updated;
+    });
   }, []);
 
-  const getUserRsvp = useCallback((_userId: string, targetType: 'meeting' | 'event', targetId: string): Rsvp | undefined => {
-    return rsvps.find(r => r.targetType === targetType && r.targetId === targetId);
+  const getUserRsvp = useCallback((userId: string, targetType: 'meeting' | 'event', targetId: string): Rsvp | undefined => {
+    return rsvps.find(r => r.userId === userId && r.targetType === targetType && r.targetId === targetId);
   }, [rsvps]);
 
   const getRsvpsForTarget = useCallback((targetType: 'meeting' | 'event', targetId: string): Rsvp[] => {

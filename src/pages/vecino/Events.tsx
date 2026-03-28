@@ -1,7 +1,7 @@
 import { VecinoLayout } from '@/components/layouts/VecinoLayout';
 import { useEvents } from '@/hooks/useDataStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Clock, TreePine, FileText, Ban, CalendarClock } from 'lucide-react';
+import { Calendar, Clock, TreePine, FileText } from 'lucide-react';
 import { format, parseISO, isAfter, isBefore } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -34,7 +34,7 @@ export default function VecinoEvents() {
     <Card className={`shadow-card transition-all hover:shadow-lg ${isPast ? 'opacity-75' : 'hover:-translate-y-1'}`}>
       <CardHeader>
         <div className="flex items-start justify-between">
-          <div className="flex-1">
+          <div>
             <div className="mb-2 inline-flex rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
               <TreePine className="mr-1 h-3 w-3" />
               {event.greenArea}
@@ -45,21 +45,12 @@ export default function VecinoEvents() {
               {format(parseISO(event.date), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
             </CardDescription>
           </div>
-          {event.status === 'cancelled' ? (
-            <div className="flex items-center gap-1 rounded-full bg-destructive/10 px-3 py-1 text-xs font-medium text-destructive">
-              <Ban className="h-3 w-3" /> Cancelado
-            </div>
-          ) : event.status === 'postponed' ? (
-            <div className="flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
-              <CalendarClock className="h-3 w-3" /> Pospuesto
-            </div>
-          ) : null}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Clock className="h-4 w-4 text-primary" />
-          <span>{event.startTime} hrs</span>
+          <span>{event.time} hrs</span>
         </div>
         
         <div className="rounded-lg bg-muted/50 p-4">
@@ -70,20 +61,7 @@ export default function VecinoEvents() {
           <p className="text-sm text-muted-foreground">{event.description}</p>
         </div>
 
-        {event.status === 'cancelled' && event.cancelReason && (
-          <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
-            <p className="text-sm text-destructive"><span className="font-medium">Motivo:</span> {event.cancelReason}</p>
-          </div>
-        )}
-
-        {event.status === 'postponed' && event.originalDate && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-            <span className="font-medium">Fecha original:</span> {format(parseISO(event.originalDate), "d 'de' MMMM 'de' yyyy", { locale: es })}
-            {event.originalStartTime && ` a las ${event.originalStartTime}`}
-          </div>
-        )}
-
-        {!isPast && event.status !== 'cancelled' && (
+        {!isPast && (
           <div className="border-t pt-3">
             <p className="mb-2 text-xs font-medium text-muted-foreground">¿Asistirás?</p>
             <RsvpButtons targetType="event" targetId={event.id} />

@@ -4,7 +4,7 @@ import { MeetingFormDialog } from '@/components/admin/MeetingFormDialog';
 import { DeleteMeetingDialog } from '@/components/admin/DeleteMeetingDialog';
 import { TablePagination, paginate } from '@/components/admin/TablePagination';
 import { exportToCSV } from '@/lib/exportCSV';
-import { useMeetings } from '@/hooks/useDataStore';
+import { useMeetingsQuery, useCreateMeeting, useUpdateMeeting, useDeleteMeeting } from '@/hooks/useApi';
 import { Meeting } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,128 +14,55 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Plus, Pencil, Trash2, Calendar, MapPin, Clock, Loader2, Search, Download, FileText, Users, Mail, ScrollText, Ban, CalendarClock, ClipboardList } from 'lucide-react';
+import { Plus, Pencil, Trash2, Calendar, MapPin, Clock, Loader2, Search, Download } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { RsvpCount } from '@/components/RsvpButtons';
-import { AttendanceDialog } from '@/components/admin/AttendanceDialog';
-import { rsvpsApi } from '@/lib/api';
-import { downloadConvocatoria, downloadMinuta } from '@/lib/pdfMeetings';
-import { SendInvitationDialog } from '@/components/admin/SendInvitationDialog';
-import { CancelDialog } from '@/components/admin/CancelDialog';
-import { PostponeDialog } from '@/components/admin/PostponeDialog';
-import { MinutaFormDialog } from '@/components/admin/MinutaFormDialog';
 
 export default function AdminMeetings() {
-  const { meetings, isLoading, addMeeting, updateMeeting, deleteMeeting, cancelMeeting, postponeMeeting } = useMeetings();
+  const { data: meetings = [], isLoading } = useMeetingsQuery();
+  const createMeeting = useCreateMeeting();
+  const updateMeeting = useUpdateMeeting();
+  const deleteMeeting = useDeleteMeeting();
   const { toast } = useToast();
 
   const [formOpen, setFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [attendanceOpen, setAttendanceOpen] = useState(false);
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const [cancelOpen, setCancelOpen] = useState(false);
-  const [postponeOpen, setPostponeOpen] = useState(false);
-  const [minutaOpen, setMinutaOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'upcoming' | 'past'>('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const [pdfLoading, setPdfLoading] = useState<string | null>(null);
-
   const handleCreate = () => { setSelectedMeeting(null); setFormOpen(true); };
   const handleEdit = (meeting: Meeting) => { setSelectedMeeting(meeting); setFormOpen(true); };
   const handleDelete = (meeting: Meeting) => { setSelectedMeeting(meeting); setDeleteOpen(true); };
-  const handleAttendance = (meeting: Meeting) => { setSelectedMeeting(meeting); setAttendanceOpen(true); };
 
-  const handleDownloadConvocatoria = async (meeting: Meeting) => {
-    setPdfLoading(`conv-${meeting.id}`);
-    try { await downloadConvocatoria(meeting); }
-    catch { toast({ title: 'Error', description: 'No se pudo generar el PDF.', variant: 'destructive' }); }
-    finally { setPdfLoading(null); }
-  };
-
-  const handleDownloadMinuta = async (meeting: Meeting) => {
-    setPdfLoading(`min-${meeting.id}`);
-    try {
-      const attendees = await rsvpsApi.getAttendance('meeting', meeting.id);
-      await downloadMinuta(meeting, attendees);
-    } catch {
-      toast({ title: 'Error', description: 'No se pudo generar la minuta.', variant: 'destructive' });
-    } finally { setPdfLoading(null); }
-  };
-
-  const handleSendEmail = (meeting: Meeting) => {
-    setSelectedMeeting(meeting);
-    setInviteOpen(true);
-  };
-
-  const handleCancel = (meeting: Meeting) => { setSelectedMeeting(meeting); setCancelOpen(true); };
-  const handlePostpone = (meeting: Meeting) => { setSelectedMeeting(meeting); setPostponeOpen(true); };
-  const handleMinuta = (meeting: Meeting) => { setSelectedMeeting(meeting); setMinutaOpen(true); };
-
-  const handleMinutaSubmit = async (data: { minutes?: string; minutesAgreements?: string; minutesResponsibles?: string; minutesClosingTime?: string }) => {
-    if (!selectedMeeting) return;
-    try {
-      await updateMeeting(selectedMeeting.id, data);
-      toast({ title: 'Minuta guardada', description: 'Los datos de la minuta fueron guardados correctamente.' });
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message || 'No se pudo guardar la minuta.', variant: 'destructive' });
-      throw e;
-    }
-  };
-
-  const handleConfirmCancel = async (reason?: string) => {
-    if (!selectedMeeting) return;
-    try {
-      await cancelMeeting(selectedMeeting.id, reason);
-      toast({ title: 'Reunión cancelada', description: `"${selectedMeeting.title}" fue cancelada.` });
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message || 'No se pudo cancelar.', variant: 'destructive' });
-      throw e;
-    }
-  };
-
-  const handleConfirmPostpone = async (data: { date: string; startTime: string; endTime?: string }) => {
-    if (!selectedMeeting) return;
-    try {
-      await postponeMeeting(selectedMeeting.id, data);
-      toast({ title: 'Reunión pospuesta', description: `"${selectedMeeting.title}" fue reprogramada.` });
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message || 'No se pudo posponer.', variant: 'destructive' });
-      throw e;
-    }
-  };
-
-  const handleFormSubmit = async (data: { title: string; location: string; date: string; startTime: string; endTime?: string; description?: string; minutes?: string }) => {
+  const handleFormSubmit = async (data: Record<string, unknown>) => {
     try {
       if (selectedMeeting) {
-        await updateMeeting(selectedMeeting.id, data);
+        await updateMeeting.mutateAsync({ id: selectedMeeting.id, data });
         toast({ title: 'Reunión actualizada', description: `"${data.title}" se actualizó correctamente.` });
       } else {
-        const created = await addMeeting(data);
+        await createMeeting.mutateAsync(data as Parameters<typeof createMeeting.mutateAsync>[0]);
         toast({ title: 'Reunión creada', description: `"${data.title}" se creó correctamente.` });
-        setSelectedMeeting(created);
-        setInviteOpen(true);
       }
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message || 'No se pudo guardar la reunión.', variant: 'destructive' });
+      setFormOpen(false);
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo guardar la reunión.', variant: 'destructive' });
     }
   };
 
   const handleConfirmDelete = async () => {
     if (selectedMeeting) {
       try {
-        await deleteMeeting(selectedMeeting.id);
+        await deleteMeeting.mutateAsync(selectedMeeting.id);
         toast({ title: 'Reunión eliminada', description: `"${selectedMeeting.title}" fue eliminada.`, variant: 'destructive' });
         setDeleteOpen(false);
         setSelectedMeeting(null);
-      } catch (e: any) {
-        toast({ title: 'Error', description: e.message || 'No se pudo eliminar la reunión.', variant: 'destructive' });
+      } catch {
+        toast({ title: 'Error', description: 'No se pudo eliminar la reunión.', variant: 'destructive' });
       }
     }
   };
@@ -231,7 +158,6 @@ export default function AdminMeetings() {
                         <TableHead>Hora</TableHead>
                         <TableHead className="hidden md:table-cell">Ubicación</TableHead>
                         <TableHead>Estado</TableHead>
-                        <TableHead>Acta</TableHead>
                         <TableHead>RSVP</TableHead>
                         <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
@@ -262,109 +188,20 @@ export default function AdminMeetings() {
                               </span>
                             </TableCell>
                             <TableCell>
-                              {meeting.status === 'cancelled' ? (
-                                <Badge variant="destructive">Cancelada</Badge>
-                              ) : meeting.status === 'postponed' ? (
-                                <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Pospuesta</Badge>
-                              ) : (
-                                <Badge variant={past ? 'secondary' : 'default'}>{past ? 'Pasada' : 'Próxima'}</Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {(meeting.minutes || meeting.minutesAgreements || meeting.minutesResponsibles) ? (
-                                <span className="flex items-center gap-1 text-xs text-primary cursor-pointer" onClick={() => handleMinuta(meeting)}>
-                                  <FileText className="h-3.5 w-3.5" /> Sí
-                                </span>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">—</span>
-                              )}
+                              <Badge variant={past ? 'secondary' : 'default'}>{past ? 'Pasada' : 'Próxima'}</Badge>
                             </TableCell>
                             <TableCell>
                               <RsvpCount targetType="meeting" targetId={meeting.id} />
                             </TableCell>
                             <TableCell className="text-right">
-                              <TooltipProvider>
-                                <div className="flex justify-end gap-1">
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button variant="ghost" size="icon" onClick={() => handleDownloadConvocatoria(meeting)} disabled={pdfLoading === `conv-${meeting.id}`} title="Descargar convocatoria">
-                                        {pdfLoading === `conv-${meeting.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Descargar convocatoria</TooltipContent>
-                                  </Tooltip>
-                                  {meeting.minutes && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" onClick={() => handleDownloadMinuta(meeting)} disabled={pdfLoading === `min-${meeting.id}`} title="Descargar minuta">
-                                          {pdfLoading === `min-${meeting.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScrollText className="h-4 w-4" />}
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>Descargar minuta</TooltipContent>
-                                    </Tooltip>
-                                  )}
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button variant="ghost" size="icon" onClick={() => handleSendEmail(meeting)} title="Enviar convocatoria por correo">
-                                        <Mail className="h-4 w-4" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Enviar convocatoria por correo</TooltipContent>
-                                  </Tooltip>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button variant="ghost" size="icon" onClick={() => handleMinuta(meeting)} title="Registrar minuta" className={meeting.minutes || meeting.minutesAgreements ? 'text-primary' : ''}>
-                                        <ClipboardList className="h-4 w-4" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>{meeting.minutes || meeting.minutesAgreements ? 'Editar minuta' : 'Registrar minuta'}</TooltipContent>
-                                  </Tooltip>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button variant="ghost" size="icon" onClick={() => handleAttendance(meeting)} title="Ver asistencia">
-                                        <Users className="h-4 w-4" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Ver asistencia</TooltipContent>
-                                  </Tooltip>
-                                  {meeting.status !== 'cancelled' && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" onClick={() => handlePostpone(meeting)} title="Posponer">
-                                          <CalendarClock className="h-4 w-4" />
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>Posponer</TooltipContent>
-                                    </Tooltip>
-                                  )}
-                                  {meeting.status !== 'cancelled' && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" onClick={() => handleCancel(meeting)} title="Cancelar" className="text-amber-600 hover:text-amber-700">
-                                          <Ban className="h-4 w-4" />
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>Cancelar reunión</TooltipContent>
-                                    </Tooltip>
-                                  )}
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button variant="ghost" size="icon" onClick={() => handleEdit(meeting)} title="Editar">
-                                        <Pencil className="h-4 w-4" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Editar</TooltipContent>
-                                  </Tooltip>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button variant="ghost" size="icon" onClick={() => handleDelete(meeting)} title="Eliminar" className="text-destructive hover:text-destructive">
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Eliminar</TooltipContent>
-                                  </Tooltip>
-                                </div>
-                              </TooltipProvider>
+                              <div className="flex justify-end gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => handleEdit(meeting)} title="Editar">
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleDelete(meeting)} title="Eliminar" className="text-destructive hover:text-destructive">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -381,39 +218,6 @@ export default function AdminMeetings() {
 
       <MeetingFormDialog key={selectedMeeting?.id ?? 'new'} open={formOpen} onOpenChange={setFormOpen} meeting={selectedMeeting} onSubmit={handleFormSubmit} />
       <DeleteMeetingDialog open={deleteOpen} onOpenChange={setDeleteOpen} meeting={selectedMeeting} onConfirm={handleConfirmDelete} />
-      <AttendanceDialog
-        open={attendanceOpen}
-        onOpenChange={setAttendanceOpen}
-        targetType="meeting"
-        targetId={selectedMeeting?.id ?? ''}
-        targetTitle={selectedMeeting?.title ?? ''}
-      />
-      <SendInvitationDialog
-        meeting={selectedMeeting}
-        open={inviteOpen}
-        onOpenChange={setInviteOpen}
-      />
-      <MinutaFormDialog
-        open={minutaOpen}
-        onOpenChange={setMinutaOpen}
-        meeting={selectedMeeting}
-        onSubmit={handleMinutaSubmit}
-      />
-      <CancelDialog
-        open={cancelOpen}
-        onOpenChange={setCancelOpen}
-        title={selectedMeeting?.title ?? ''}
-        onConfirm={handleConfirmCancel}
-      />
-      <PostponeDialog
-        open={postponeOpen}
-        onOpenChange={setPostponeOpen}
-        title={selectedMeeting?.title ?? ''}
-        currentDate={selectedMeeting?.date}
-        currentStartTime={selectedMeeting?.startTime}
-        currentEndTime={selectedMeeting?.endTime}
-        onConfirm={handleConfirmPostpone}
-      />
     </AdminLayout>
   );
 }
