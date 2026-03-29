@@ -3,12 +3,9 @@
 @import '@fontsource/inter/400.css';
 @import '@fontsource/inter/500.css';
 @import '@fontsource/inter/600.css';
-@import '@fontsource/poppins/300.css';
 @import '@fontsource/poppins/500.css';
 @import '@fontsource/poppins/600.css';
 @import '@fontsource/poppins/700.css';
-@import '@fontsource/playfair-display/400.css';
-@import '@fontsource/playfair-display/400-italic.css';
 
 @tailwind base;
 @tailwind components;
@@ -41,7 +38,7 @@
     --secondary: 243 30% 93%;
     --secondary-foreground: 243 45% 20%;
 
-    /* Accent = deep indigo (emphasis, sidebar, mosaic dark block) */
+    /* Accent = deep indigo (emphasis, badges) */
     --accent: 243 45% 20%;
     --accent-foreground: 0 0% 100%;
 
@@ -51,16 +48,11 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Slightly warm border — architectural / editorial feel */
-    --border: 40 12% 88%;
-    --input: 40 12% 88%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
     --ring: 14 91% 62%;
 
-    /* Architecture-grade geometry: zero radius */
-    --radius: 0px;
-
-    /* Editorial beige/taupe block — inspired by BONJO #D9D2B5 */
-    --taupe: 44 30% 78%;
+    --radius: 0.75rem;
 
     /* Sidebar = Niddo deep indigo */
     --sidebar-background: 243 45% 20%;
@@ -102,8 +94,6 @@
     --input: 243 20% 22%;
     --ring: 14 91% 65%;
 
-    --taupe: 44 20% 25%;
-
     --sidebar-background: 243 45% 7%;
     --sidebar-foreground: 0 0% 97%;
     --sidebar-primary: 14 91% 65%;
@@ -135,22 +125,8 @@
     text-wrap: balance;
   }
 
+  /* Subtle card lift on hover — used in landing page */
   .card-hover {
     @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md;
-  }
-
-  /* Mosaic grid separator — warm architectural line */
-  .mosaic-border {
-    border-color: hsl(var(--border));
-  }
-}
-
-/* ── Shadow tokens ───────────────────────────────────────── */
-@layer base {
-  .shadow-card {
-    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 4px 16px -4px rgb(0 0 0 / 0.07);
-  }
-  .dark .shadow-card {
-    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 4px 16px -4px rgb(0 0 0 / 0.4);
   }
 }
