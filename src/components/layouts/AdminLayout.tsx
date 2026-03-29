@@ -1,7 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
-import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,35 +16,98 @@ import {
   Home as HomeIcon,
   Users,
   LogOut,
-  Menu,
-  X,
   ChevronLeft,
   Sun,
   Moon,
   Building2,
   ChevronDown,
-  DollarSign,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
-// TODO: replace with Niddo geometric isotipo asset when available
 import { NotificationBell } from '@/components/NotificationBell';
 
 const adminLinks = [
-  { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, roles: null },
-  { to: '/admin/condominios', label: 'Condominios', icon: Building2, roles: ['PLATFORM_ADMIN'] },
-  { to: '/admin/reuniones', label: 'Reuniones', icon: Calendar, roles: null },
-  { to: '/admin/eventos', label: 'Eventos', icon: TreePine, roles: null },
-  { to: '/admin/casas', label: 'Casas', icon: HomeIcon, roles: null },
-  { to: '/admin/usuarios', label: 'Usuarios', icon: Users, roles: null },
-  { to: '/admin/cuotas', label: 'Cuotas', icon: DollarSign, roles: null },
+  { to: '/admin',             label: 'Dashboard',   icon: LayoutDashboard, roles: null },
+  { to: '/admin/condominios', label: 'Condominios', icon: Building2,       roles: ['PLATFORM_ADMIN'] },
+  { to: '/admin/reuniones',   label: 'Reuniones',   icon: Calendar,        roles: null },
+  { to: '/admin/eventos',     label: 'Eventos',     icon: TreePine,        roles: null },
+  { to: '/admin/casas',       label: 'Casas',       icon: HomeIcon,        roles: null },
+  { to: '/admin/usuarios',    label: 'Usuarios',    icon: Users,           roles: null },
 ];
 
+/* ── BONJO-style animated hamburger ─────────────────────────── */
+function HamburgerIcon({ open }: { open: boolean }) {
+  return (
+    <div className="flex flex-col justify-center gap-[5px] h-5 w-5">
+      <span className={cn(
+        'block h-px bg-current transition-all duration-200 origin-center',
+        open ? 'rotate-45 translate-y-[6px] w-full' : 'w-full',
+      )} />
+      <span className={cn(
+        'block h-px bg-current transition-all duration-200',
+        open ? 'opacity-0 w-0' : 'w-3',
+      )} />
+      <span className={cn(
+        'block h-px bg-current transition-all duration-200 origin-center',
+        open ? '-rotate-45 -translate-y-[6px] w-full' : 'w-full',
+      )} />
+    </div>
+  );
+}
+
+/* ── Logo mark: "NIDDO" enclosed in thin square frame ───────── */
+function LogoMark({ collapsed = false }: { collapsed?: boolean }) {
+  return (
+    <div className={cn(
+      'border border-sidebar-foreground/30 inline-flex items-center justify-center',
+      collapsed ? 'h-9 w-9' : 'px-3 py-2',
+    )}>
+      {collapsed
+        ? <span className="font-title font-light text-xs text-sidebar-foreground tracking-[0.2em]">N</span>
+        : <span className="font-title font-light text-sm text-sidebar-foreground tracking-[0.3em] uppercase">Niddo</span>
+      }
+    </div>
+  );
+}
+
+/* ── Nav link item ───────────────────────────────────────────── */
+function NavItem({
+  link, isActive, collapsed, onClick,
+}: {
+  link: typeof adminLinks[0];
+  isActive: boolean;
+  collapsed: boolean;
+  onClick?: () => void;
+}) {
+  const Icon = link.icon;
+  return (
+    <Link to={link.to} onClick={onClick}>
+      <div
+        title={collapsed ? link.label : undefined}
+        className={cn(
+          'flex items-center gap-3 py-2.5 transition-colors duration-150',
+          collapsed ? 'justify-center px-2' : 'px-3',
+          isActive
+            ? 'bg-white/12 text-sidebar-foreground'
+            : 'text-sidebar-foreground/40 hover:text-sidebar-foreground/75 hover:bg-white/6',
+        )}
+      >
+        <Icon className="h-[15px] w-[15px] shrink-0" />
+        {!collapsed && (
+          <span className="text-[10px] uppercase tracking-[0.2em] font-medium leading-none">
+            {link.label}
+          </span>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+/* ── Condo selector ──────────────────────────────────────────── */
 function CondoSelector({ collapsed = false }: { collapsed?: boolean }) {
   const { user } = useAuth();
   const { tenantId, setTenantId, condominiums, currentCondominium } = useTenant();
-
   if (user?.role !== 'PLATFORM_ADMIN') return null;
 
   const label = currentCondominium?.name ?? 'Todos los condominios';
@@ -53,26 +115,31 @@ function CondoSelector({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size={collapsed ? 'icon' : 'sm'}
-          className={cn(
-            'text-sidebar-foreground hover:bg-sidebar-accent w-full',
-            collapsed ? 'justify-center px-2' : 'justify-between gap-2',
-          )}
+        <button
           title={collapsed ? label : undefined}
+          className={cn(
+            'w-full flex items-center gap-2 px-3 py-2',
+            'text-sidebar-foreground/45 hover:text-sidebar-foreground/75',
+            'border border-sidebar-foreground/12 hover:border-sidebar-foreground/25',
+            'transition-colors duration-150',
+            collapsed ? 'justify-center px-2' : 'justify-between',
+          )}
         >
-          <Building2 className="h-4 w-4 shrink-0" />
+          <Building2 className="h-3.5 w-3.5 shrink-0" />
           {!collapsed && (
             <>
-              <span className="flex-1 truncate text-left text-xs">{label}</span>
-              <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
+              <span className="flex-1 truncate text-left text-[9px] uppercase tracking-[0.15em]">
+                {label}
+              </span>
+              <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
             </>
           )}
-        </Button>
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuLabel>Condominio activo</DropdownMenuLabel>
+        <DropdownMenuLabel className="text-[9px] uppercase tracking-[0.15em]">
+          Condominio activo
+        </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className={cn(!tenantId && 'bg-accent/10 font-medium')}
@@ -94,212 +161,183 @@ function CondoSelector({ collapsed = false }: { collapsed?: boolean }) {
   );
 }
 
+/* ── Layout ──────────────────────────────────────────────────── */
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const visibleLinks = adminLinks.filter(l => !l.roles || l.roles.includes(user?.role ?? ''));
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen]     = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { theme, setTheme } = useTheme();
-  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+  const toggleTheme  = () => setTheme(theme === 'dark' ? 'light' : 'dark');
+  const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Mobile Header */}
-      <header className="sticky top-0 z-50 flex h-20 items-center justify-between border-b bg-card px-4 lg:hidden">
-        <Link to="/admin" className="flex items-center gap-2">
-          <span className="font-title font-bold text-2xl text-accent">Niddo</span>
-          <span className="text-xs font-medium text-muted-foreground">Admin</span>
-        </Link>
-        <div className="flex items-center gap-1">
+
+      {/* ── Mobile header ───────────────────────────────────── */}
+      <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-border bg-card px-5 lg:hidden">
+        <Link to="/admin"><LogoMark /></Link>
+        <div className="flex items-center gap-3">
           <NotificationBell />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          <button
+            onClick={() => setMobileMenuOpen(v => !v)}
+            className="h-9 w-9 flex items-center justify-center text-foreground"
           >
-            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </Button>
+            <HamburgerIcon open={mobileMenuOpen} />
+          </button>
         </div>
       </header>
 
-      {/* Mobile Menu Overlay */}
+      {/* Mobile overlay */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setMobileMenuOpen(false)} />
+        <div
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
       )}
 
-      {/* Mobile Sidebar */}
+      {/* ── Mobile sidebar ───────────────────────────────────── */}
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-50 w-64 transform bg-sidebar transition-transform duration-200 lg:hidden",
-        mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+        'fixed inset-y-0 left-0 z-50 w-64 flex flex-col bg-sidebar transition-transform duration-200 lg:hidden',
+        mobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
       )}>
-        <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
-          <span className="font-title font-semibold text-sidebar-foreground">Niddo</span>
-          <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(false)} className="text-sidebar-foreground">
-            <X className="h-5 w-5" />
-          </Button>
+        <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-5">
+          <LogoMark />
+          <button
+            onClick={() => setMobileMenuOpen(false)}
+            className="h-8 w-8 flex items-center justify-center text-sidebar-foreground/50 hover:text-sidebar-foreground"
+          >
+            <HamburgerIcon open={true} />
+          </button>
         </div>
-        <div className="px-4 pt-3 pb-1">
+        <div className="px-4 pt-4 pb-2">
           <CondoSelector />
         </div>
-        <nav className="flex flex-col gap-1 p-4">
-          {visibleLinks.map(link => {
-            const Icon = link.icon;
-            const isActive = location.pathname === link.to;
-            return (
-              <Link key={link.to} to={link.to} onClick={() => setMobileMenuOpen(false)}>
-                <Button
-                  variant="ghost"
-                  className={cn(
-                    "w-full justify-start gap-3 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                    isActive && "bg-sidebar-accent text-sidebar-accent-foreground"
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                  {link.label}
-                </Button>
-              </Link>
-            );
-          })}
+        <nav className="flex flex-col gap-0.5 px-4 py-3 flex-1 overflow-y-auto">
+          {visibleLinks.map(link => (
+            <NavItem
+              key={link.to}
+              link={link}
+              isActive={location.pathname === link.to}
+              collapsed={false}
+              onClick={() => setMobileMenuOpen(false)}
+            />
+          ))}
         </nav>
-        <div className="absolute bottom-0 left-0 right-0 border-t border-sidebar-border p-4">
-          <div className="mb-3 text-sm text-sidebar-foreground/70">
-            {user?.name}
-          </div>
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 text-sidebar-foreground hover:bg-sidebar-accent"
-            onClick={toggleTheme}
-          >
-            {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
-          </Button>
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 text-sidebar-foreground hover:bg-sidebar-accent"
-            onClick={handleLogout}
-          >
-            <LogOut className="h-5 w-5" />
-            Cerrar sesión
-          </Button>
+        <div className="border-t border-sidebar-border px-4 py-3 space-y-0.5">
+          {user?.name && (
+            <div className="px-3 pb-2 text-[9px] uppercase tracking-[0.15em] text-sidebar-foreground/25 truncate">
+              {user.name} {user.lastName}
+            </div>
+          )}
+          <button onClick={toggleTheme} className="w-full flex items-center gap-3 px-3 py-2.5 text-sidebar-foreground/40 hover:text-sidebar-foreground/75 transition-colors">
+            {theme === 'dark' ? <Sun className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" />}
+            <span className="text-[10px] uppercase tracking-[0.2em]">
+              {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+            </span>
+          </button>
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 text-sidebar-foreground/40 hover:text-sidebar-foreground/75 transition-colors">
+            <LogOut className="h-4 w-4 shrink-0" />
+            <span className="text-[10px] uppercase tracking-[0.2em]">Cerrar sesión</span>
+          </button>
         </div>
       </aside>
 
-      {/* Desktop Layout */}
+      {/* ── Desktop layout ───────────────────────────────────── */}
       <div className="hidden lg:flex">
-        {/* Desktop Sidebar */}
+
         <aside className={cn(
-          "sticky top-0 h-screen bg-sidebar transition-all duration-200 flex flex-col",
-          sidebarOpen ? "w-72" : "w-20"
+          'sticky top-0 h-screen bg-sidebar flex flex-col transition-all duration-200',
+          sidebarOpen ? 'w-56' : 'w-[52px]',
         )}>
-          <div className="flex h-20 items-center justify-between border-b border-sidebar-border px-4">
-            {sidebarOpen ? (
-              <Link to="/admin" className="flex items-center gap-2">
-                <span className="font-title font-bold text-2xl text-white">Niddo</span>
-                <span className="text-xs font-medium text-sidebar-foreground/60">Admin</span>
-              </Link>
-            ) : (
-              <Link to="/admin" className="flex items-center justify-center w-full">
-                {/* TODO: insert Niddo geometric isotipo here */}
-                <span className="font-title font-bold text-xl text-white">N</span>
-              </Link>
+          {/* Header */}
+          <div className={cn(
+            'flex h-16 items-center border-b border-sidebar-border shrink-0',
+            sidebarOpen ? 'px-5 justify-between' : 'justify-center px-2',
+          )}>
+            <Link to="/admin"><LogoMark collapsed={!sidebarOpen} /></Link>
+            {sidebarOpen && (
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="h-8 w-8 flex items-center justify-center text-sidebar-foreground/35 hover:text-sidebar-foreground/70 transition-colors"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className={cn(
-                "text-sidebar-foreground hover:bg-sidebar-accent",
-                !sidebarOpen && "mx-auto"
-              )}
-            >
-              <ChevronLeft className={cn("h-5 w-5 transition-transform", !sidebarOpen && "rotate-180")} />
-            </Button>
           </div>
 
-          {/* Condo Selector */}
-          <div className={cn("px-4 pt-3 pb-1", !sidebarOpen && "px-2")}>
+          {/* Expand trigger when collapsed */}
+          {!sidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="flex items-center justify-center py-2.5 border-b border-sidebar-border text-sidebar-foreground/35 hover:text-sidebar-foreground/70 transition-colors shrink-0"
+            >
+              <ChevronLeft className="h-4 w-4 rotate-180" />
+            </button>
+          )}
+
+          {/* Condo selector */}
+          <div className={cn('pt-4 pb-2 shrink-0', sidebarOpen ? 'px-4' : 'px-2')}>
             <CondoSelector collapsed={!sidebarOpen} />
           </div>
 
-          <nav className="flex flex-col gap-1 p-4">
-            {visibleLinks.map(link => {
-              const Icon = link.icon;
-              const isActive = location.pathname === link.to;
-              return (
-                <Link key={link.to} to={link.to}>
-                  <Button
-                    variant="ghost"
-                    className={cn(
-                      "w-full gap-3 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                      sidebarOpen ? "justify-start" : "justify-center px-2",
-                      isActive && "bg-sidebar-accent text-sidebar-accent-foreground"
-                    )}
-                    title={!sidebarOpen ? link.label : undefined}
-                  >
-                    <Icon className="h-5 w-5 shrink-0" />
-                    {sidebarOpen && <span>{link.label}</span>}
-                  </Button>
-                </Link>
-              );
-            })}
+          {/* Nav */}
+          <nav className={cn('flex flex-col gap-0.5 flex-1 py-3 overflow-y-auto', sidebarOpen ? 'px-4' : 'px-2')}>
+            {visibleLinks.map(link => (
+              <NavItem
+                key={link.to}
+                link={link}
+                isActive={location.pathname === link.to}
+                collapsed={!sidebarOpen}
+              />
+            ))}
           </nav>
 
-          <div className="mt-auto border-t border-sidebar-border p-4">
-            {sidebarOpen && (
-              <div className="mb-3 truncate text-sm text-sidebar-foreground/70">
-                {user?.name} {user?.lastName}
+          {/* Footer */}
+          <div className={cn('border-t border-sidebar-border py-3 space-y-0.5 shrink-0', sidebarOpen ? 'px-4' : 'px-2')}>
+            {sidebarOpen && user?.name && (
+              <div className="px-3 pb-2 text-[9px] uppercase tracking-[0.15em] text-sidebar-foreground/25 truncate">
+                {user.name} {user.lastName}
               </div>
             )}
-            <Button
-              variant="ghost"
-              className={cn(
-                "w-full gap-3 text-sidebar-foreground hover:bg-sidebar-accent",
-                sidebarOpen ? "justify-start" : "justify-center px-2"
-              )}
+            <button
               onClick={toggleTheme}
               title={!sidebarOpen ? (theme === 'dark' ? 'Modo claro' : 'Modo oscuro') : undefined}
-            >
-              {theme === 'dark' ? <Sun className="h-5 w-5 shrink-0" /> : <Moon className="h-5 w-5 shrink-0" />}
-              {sidebarOpen && <span>{theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span>}
-            </Button>
-            <Button
-              variant="ghost"
               className={cn(
-                "w-full gap-3 text-sidebar-foreground hover:bg-sidebar-accent",
-                sidebarOpen ? "justify-start" : "justify-center px-2"
+                'w-full flex items-center gap-3 py-2.5 text-sidebar-foreground/40 hover:text-sidebar-foreground/75 transition-colors',
+                sidebarOpen ? 'px-3' : 'justify-center px-2',
               )}
-              onClick={handleLogout}
-              title={!sidebarOpen ? "Cerrar sesión" : undefined}
             >
-              <LogOut className="h-5 w-5 shrink-0" />
-              {sidebarOpen && <span>Cerrar sesión</span>}
-            </Button>
+              {theme === 'dark' ? <Sun className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" />}
+              {sidebarOpen && <span className="text-[10px] uppercase tracking-[0.2em]">{theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span>}
+            </button>
+            <button
+              onClick={handleLogout}
+              title={!sidebarOpen ? 'Cerrar sesión' : undefined}
+              className={cn(
+                'w-full flex items-center gap-3 py-2.5 text-sidebar-foreground/40 hover:text-sidebar-foreground/75 transition-colors',
+                sidebarOpen ? 'px-3' : 'justify-center px-2',
+              )}
+            >
+              <LogOut className="h-4 w-4 shrink-0" />
+              {sidebarOpen && <span className="text-[10px] uppercase tracking-[0.2em]">Cerrar sesión</span>}
+            </button>
           </div>
         </aside>
 
-        {/* Main Content */}
         <main className="flex-1 overflow-auto">
           <div className="container py-8">
-            <div className="animate-fade-in">
-              {children}
-            </div>
+            <div className="animate-fade-in">{children}</div>
           </div>
         </main>
       </div>
 
-      {/* Mobile Main Content */}
+      {/* Mobile main */}
       <main className="lg:hidden">
         <div className="container py-8">
-          <div className="animate-fade-in">
-            {children}
-          </div>
+          <div className="animate-fade-in">{children}</div>
         </div>
       </main>
     </div>

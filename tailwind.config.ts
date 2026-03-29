@@ -17,7 +17,7 @@ export default {
         sans:    ["Inter", "system-ui", "sans-serif"],
         title:   ["Poppins", "sans-serif"],
         serif:   ["Poppins", "sans-serif"],
-        display: ["Playfair Display", "Georgia", "serif"], // editorial serif for large numbers
+        display: ["Playfair Display", "Georgia", "serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -75,9 +75,11 @@ export default {
         },
       },
       borderRadius: {
+        // --radius is 0px; all variants resolve to 0 — perfect 90° geometry
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        md: "var(--radius)",
+        sm: "var(--radius)",
+        DEFAULT: "0px",
       },
       keyframes: {
         "accordion-down": {
@@ -104,8 +106,8 @@ export default {
         "slide-in": "slide-in 0.3s ease-out",
       },
       boxShadow: {
-        soft: "0 2px 15px -3px rgba(30, 143, 78, 0.1), 0 10px 20px -2px rgba(30, 143, 78, 0.04)",
-        card: "0 1px 3px 0 rgba(0,0,0,0.06), 0 4px 20px -4px rgba(0,0,0,0.08)",
+        soft: "0 2px 15px -3px rgba(30,143,78,0.1), 0 10px 20px -2px rgba(30,143,78,0.04)",
+        card: "0 1px 3px 0 rgba(0,0,0,0.05), 0 4px 16px -4px rgba(0,0,0,0.07)",
       },
     },
   },
