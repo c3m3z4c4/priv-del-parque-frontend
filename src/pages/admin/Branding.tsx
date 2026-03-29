@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { api } from '@/lib/api';
-import { useAuth } from '@/contexts/AuthContext';
-import { CondominiumBranding, CondominiumBrandingColors, Condominium } from '@/types';
+import { useBranding } from '@/contexts/BrandingContext';
+import { useTenant } from '@/contexts/TenantContext';
+import { CondominiumBranding, CondominiumBrandingColors } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,7 +39,7 @@ function hexToHsl(hex: string): string {
 }
 
 function hslToHex(hsl: string): string {
-  const parts = hsl.replace(/%/g, '').trim().split(/[\s,]+/).map(Number);
+  const parts = (hsl ?? '').replace(/%/g, '').trim().split(/[\s,]+/).map(Number);
   if (parts.length < 3 || parts.some(isNaN)) return '#888888';
   const [hDeg, sPct, lPct] = parts;
   const h = hDeg / 360, s = sPct / 100, l = lPct / 100;
@@ -113,11 +114,12 @@ function ColorField({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const safe = value ?? '';
   return (
     <div className="flex items-center gap-3 py-1.5">
       <input
         type="color"
-        value={hslToHex(value)}
+        value={hslToHex(safe)}
         onChange={e => onChange(hexToHsl(e.target.value))}
         className="h-9 w-9 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0.5"
         title={label}
@@ -127,7 +129,7 @@ function ColorField({
         {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
       </div>
       <Input
-        value={value}
+        value={safe}
         onChange={e => onChange(e.target.value)}
         className="w-40 font-mono text-xs h-8 shrink-0"
         placeholder="H S% L%"
@@ -151,49 +153,31 @@ function BrandingPreview({
       style={{ fontFamily: `"${font.family}", sans-serif` }}
     >
       <div className="flex h-52">
-        {/* Mini sidebar */}
         <div
           className="w-28 flex flex-col gap-0.5 p-2.5 shrink-0"
-          style={{
-            backgroundColor: `hsl(${colors.sidebarBg})`,
-            color: `hsl(${colors.sidebarFg})`,
-          }}
+          style={{ backgroundColor: `hsl(${colors.sidebarBg})`, color: `hsl(${colors.sidebarFg})` }}
         >
           <div className="mb-2 font-bold truncate text-xs">{appName}</div>
           {['Dashboard', 'Reuniones', 'Eventos', 'Casas', 'Usuarios'].map(item => (
             <div key={item} className="rounded px-2 py-1 opacity-75 truncate">{item}</div>
           ))}
         </div>
-
-        {/* Mini content */}
         <div
           className="flex-1 p-3 space-y-3"
-          style={{
-            backgroundColor: `hsl(${colors.background})`,
-            color: `hsl(${colors.foreground})`,
-          }}
+          style={{ backgroundColor: `hsl(${colors.background})`, color: `hsl(${colors.foreground})` }}
         >
-          <div
-            className="font-semibold text-xs"
-            style={{ color: `hsl(${colors.accent})` }}
-          >
+          <div className="font-semibold text-xs" style={{ color: `hsl(${colors.accent})` }}>
             Dashboard — {appName}
           </div>
-
           <div className="grid grid-cols-2 gap-2">
             {['Reuniones', 'Eventos'].map(label => (
-              <div
-                key={label}
-                className="rounded p-2"
-                style={{ backgroundColor: `hsl(${colors.secondary})` }}
-              >
+              <div key={label} className="rounded p-2" style={{ backgroundColor: `hsl(${colors.secondary})` }}>
                 <div className="font-semibold text-base" style={{ color: `hsl(${colors.primary})` }}>12</div>
                 <div className="opacity-60">{label}</div>
               </div>
             ))}
           </div>
-
-          <div className="flex gap-1.5 mt-1">
+          <div className="flex gap-1.5">
             <div
               className="rounded px-2.5 py-1 font-medium"
               style={{ backgroundColor: `hsl(${colors.primary})`, color: `hsl(${colors.primaryForeground})` }}
@@ -238,36 +222,36 @@ const RADIUS_OPTIONS = [
 // ── Main page ─────────────────────────────────────────────────
 
 export default function AdminBranding() {
-  const { user } = useAuth();
+  const { branding, isLoading } = useBranding();
+  const { tenantId } = useTenant();
   const { toast } = useToast();
-  const qc = useQueryClient();
-  const condominiumId = user?.condominiumId;
-
-  const { data: condominium, isLoading } = useQuery<Condominium>({
-    queryKey: ['condominium-branding', condominiumId],
-    queryFn: () => api.get<Condominium>(`/condominiums/${condominiumId}`).then(r => r.data),
-    enabled: !!condominiumId,
-  });
 
   const [form, setForm] = useState<CondominiumBranding | null>(null);
   const [dirty, setDirty] = useState(false);
 
+  // Initialize form once branding is available from context
   useEffect(() => {
-    if (condominium?.branding && !dirty) {
-      setForm(condominium.branding);
+    if (branding && !dirty) {
+      setForm(branding);
     }
-  }, [condominium, dirty]);
+  }, [branding, dirty]);
+
+  // Fallback: if no branding in context yet but also not loading, use Niddo preset
+  useEffect(() => {
+    if (!isLoading && !branding && !form) {
+      setForm(NIDDO_PRESET);
+    }
+  }, [isLoading, branding, form]);
 
   const patch = useMutation({
-    mutationFn: (branding: CondominiumBranding) =>
-      api.patch(`/condominiums/${condominiumId}/branding`, branding),
+    mutationFn: (b: CondominiumBranding) =>
+      api.patch(`/condominiums/${tenantId}/branding`, b),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['condominium-branding', condominiumId] });
       setDirty(false);
       toast({ title: 'Identidad guardada', description: 'Los cambios se aplican al recargar la página.' });
     },
     onError: () => {
-      toast({ title: 'Error', description: 'No se pudo guardar.', variant: 'destructive' });
+      toast({ title: 'Error', description: 'No se pudo guardar. Verifica tu conexión.', variant: 'destructive' });
     },
   });
 
@@ -282,20 +266,19 @@ export default function AdminBranding() {
   }
 
   function applyPreset(preset: CondominiumBranding) {
-    setForm(f => f ? {
+    setForm(f => ({
       ...preset,
-      // Keep existing URLs so we don't lose uploaded logos
-      logoUrl: f.logoUrl,
-      logoMarkUrl: f.logoMarkUrl,
-      faviconUrl: f.faviconUrl,
-    } : preset);
+      logoUrl: f?.logoUrl ?? null,
+      logoMarkUrl: f?.logoMarkUrl ?? null,
+      faviconUrl: f?.faviconUrl ?? null,
+    }));
     setDirty(true);
     toast({ title: 'Preset aplicado', description: 'Revisa y guarda cuando estés listo.' });
   }
 
   function resetForm() {
-    if (condominium?.branding) {
-      setForm(condominium.branding);
+    if (branding) {
+      setForm(branding);
       setDirty(false);
     }
   }
@@ -310,7 +293,7 @@ export default function AdminBranding() {
     );
   }
 
-  if (!condominiumId) {
+  if (!tenantId) {
     return (
       <AdminLayout>
         <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -467,7 +450,8 @@ export default function AdminBranding() {
                   <Palette className="h-4 w-4" /> Colores
                 </CardTitle>
                 <CardDescription>
-                  Usa el selector visual o escribe el valor HSL directamente (ej. <code className="font-mono">136 54% 35%</code>).
+                  Usa el selector visual o escribe el valor HSL directamente (ej.{' '}
+                  <code className="font-mono text-xs">136 54% 35%</code>).
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -524,7 +508,7 @@ export default function AdminBranding() {
 
                   <TabsContent value="dark" className="space-y-1 mt-0">
                     <p className="text-xs text-muted-foreground mb-3">
-                      Estas variables sobreescriben los colores en modo oscuro. Si se dejan vacíos, se usan los colores del modo claro.
+                      Sobreescriben los colores en modo oscuro. Si quedan vacíos se usan los del modo claro.
                     </p>
                     <ColorField
                       label="Primario (oscuro)"
@@ -579,9 +563,7 @@ export default function AdminBranding() {
                   <Label>Fuente principal</Label>
                   <Select
                     value={form.font.family}
-                    onValueChange={v => {
-                      updateField('font', { ...form.font, family: v });
-                    }}
+                    onValueChange={v => updateField('font', { ...form.font, family: v })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -596,7 +578,6 @@ export default function AdminBranding() {
                     Se aplica a toda la interfaz de la plataforma.
                   </p>
                 </div>
-
                 <div className="space-y-1.5">
                   <Label>Redondeo de esquinas</Label>
                   <Select
@@ -621,34 +602,31 @@ export default function AdminBranding() {
 
           </div>
 
-          {/* Right column — preview */}
-          <div className="space-y-4">
+          {/* Right column — sticky preview */}
+          <div>
             <Card className="sticky top-24">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Vista previa</CardTitle>
                 <CardDescription>Refleja los cambios en tiempo real.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <BrandingPreview
-                  colors={form.colors}
-                  font={form.font}
-                  appName={form.appName}
-                />
+                <BrandingPreview colors={form.colors} font={form.font} appName={form.appName} />
 
-                {/* Color swatches summary */}
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Paleta</p>
                   <div className="flex flex-wrap gap-2">
-                    {[
-                      { key: 'primary', label: 'Primario' },
-                      { key: 'secondary', label: 'Secundario' },
-                      { key: 'accent', label: 'Acento' },
-                      { key: 'sidebarBg', label: 'Sidebar' },
-                    ].map(({ key, label }) => (
+                    {(
+                      [
+                        { key: 'primary', label: 'Primario' },
+                        { key: 'secondary', label: 'Secundario' },
+                        { key: 'accent', label: 'Acento' },
+                        { key: 'sidebarBg', label: 'Sidebar' },
+                      ] as { key: keyof CondominiumBrandingColors; label: string }[]
+                    ).map(({ key, label }) => (
                       <div key={key} className="flex items-center gap-1.5">
                         <div
                           className="h-5 w-5 rounded border border-border shadow-sm"
-                          style={{ backgroundColor: hslToHex(form.colors[key as keyof CondominiumBrandingColors] ?? '') }}
+                          style={{ backgroundColor: hslToHex(form.colors[key] ?? '') }}
                           title={label}
                         />
                         <span className="text-xs text-muted-foreground">{label}</span>
@@ -661,7 +639,10 @@ export default function AdminBranding() {
 
                 <div className="text-xs text-muted-foreground space-y-1">
                   <p><span className="font-medium text-foreground">Fuente:</span> {form.font.family}</p>
-                  <p><span className="font-medium text-foreground">Esquinas:</span> {RADIUS_OPTIONS.find(r => r.value === form.borderRadius)?.label}</p>
+                  <p>
+                    <span className="font-medium text-foreground">Esquinas:</span>{' '}
+                    {RADIUS_OPTIONS.find(r => r.value === form.borderRadius)?.label}
+                  </p>
                 </div>
 
                 {dirty && (
