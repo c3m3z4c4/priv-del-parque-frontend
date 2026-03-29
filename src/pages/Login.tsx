@@ -55,10 +55,10 @@ export default function Login() {
         {/* Logo & Title */}
         <div className="text-center">
           {/* TODO: replace with Niddo geometric isotipo */}
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-accent shadow-lg">
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-sidebar shadow-lg">
             <span className="font-title font-bold text-3xl text-white">N</span>
           </div>
-          <h1 className="font-title font-bold text-3xl text-accent">Niddo</h1>
+          <h1 className="font-title font-bold text-3xl text-foreground">Niddo</h1>
           <p className="mt-1 text-muted-foreground text-sm">
             Tu condominio en armonía
           </p>

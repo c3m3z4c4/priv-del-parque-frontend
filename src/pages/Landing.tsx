@@ -51,7 +51,7 @@ export default function Landing() {
       {/* ── Navbar ─────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
         <div className="container flex h-16 items-center justify-between">
-          <span className="font-title font-bold text-2xl text-accent">Niddo</span>
+          <span className="font-title font-bold text-2xl text-foreground">Niddo</span>
           <Link to="/login">
             <Button size="sm">Iniciar sesión <ChevronRight className="ml-1 h-4 w-4" /></Button>
           </Link>
@@ -125,7 +125,7 @@ export default function Landing() {
 
       {/* ── CTA Banner ─────────────────────────────────────── */}
       <section className="container py-20 text-center">
-        <div className="mx-auto max-w-2xl rounded-2xl bg-accent px-8 py-14">
+        <div className="mx-auto max-w-2xl rounded-2xl bg-sidebar px-8 py-14">
           <h2 className="font-title text-3xl font-bold text-white md:text-4xl">
             Tu condominio en armonía
           </h2>
@@ -143,7 +143,7 @@ export default function Landing() {
       {/* ── Footer ─────────────────────────────────────────── */}
       <footer className="border-t py-8">
         <div className="container flex flex-col items-center gap-2 text-center text-sm text-muted-foreground sm:flex-row sm:justify-between">
-          <span className="font-title font-semibold text-accent">Niddo</span>
+          <span className="font-title font-semibold text-foreground">Niddo</span>
           <p>© 2026 Niddo. Todos los derechos reservados.</p>
         </div>
       </footer>
