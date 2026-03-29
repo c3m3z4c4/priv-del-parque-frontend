@@ -14,9 +14,10 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans:  ["Inter", "system-ui", "sans-serif"],
-        title: ["Poppins", "sans-serif"],
-        serif: ["Poppins", "sans-serif"], // backward-compat alias → font-serif still works
+        sans:    ["Inter", "system-ui", "sans-serif"],
+        title:   ["Poppins", "sans-serif"],
+        serif:   ["Poppins", "sans-serif"],
+        display: ["Playfair Display", "Georgia", "serif"], // editorial serif for large numbers
       },
       colors: {
         border: "hsl(var(--border))",
@@ -52,6 +53,7 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        taupe: "hsl(var(--taupe))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -103,7 +105,7 @@ export default {
       },
       boxShadow: {
         soft: "0 2px 15px -3px rgba(30, 143, 78, 0.1), 0 10px 20px -2px rgba(30, 143, 78, 0.04)",
-        card: "0 4px 20px -2px rgba(0, 0, 0, 0.08)",
+        card: "0 1px 3px 0 rgba(0,0,0,0.06), 0 4px 20px -4px rgba(0,0,0,0.08)",
       },
     },
   },
