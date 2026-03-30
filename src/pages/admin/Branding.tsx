@@ -13,8 +13,49 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Palette, Type, ImageIcon, Building2, Save, RotateCcw } from 'lucide-react';
+import { Loader2, Palette, Type, ImageIcon, Building2, Save, RotateCcw, Upload, X, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+// ── Canvas favicon generator ──────────────────────────────────
+
+async function resizeImageToBlob(src: string, size: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d')!;
+      // Fill transparent background
+      ctx.clearRect(0, 0, size, size);
+      // Draw image centered and scaled (contain)
+      const scale = Math.min(size / img.width, size / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('Canvas toBlob failed')), 'image/png');
+    };
+    img.onerror = () => reject(new Error('Image load failed'));
+    img.src = src;
+  });
+}
+
+async function uploadBlobAsFile(
+  blob: Blob,
+  filename: string,
+  condominiumId: string,
+  baseUrl: string,
+): Promise<string> {
+  const fd = new FormData();
+  fd.append('file', blob, filename);
+  const { data } = await api.post<{ url: string }>(
+    `/condominiums/${condominiumId}/branding/upload`,
+    fd,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return `${baseUrl}${data.url}`;
+}
 
 // ── Color conversion helpers ──────────────────────────────────
 
@@ -197,6 +238,150 @@ function BrandingPreview({
   );
 }
 
+// ── LogoUploader component ────────────────────────────────────
+
+interface LogoUploaderProps {
+  label: string;
+  hint: string;
+  currentUrl: string | null;
+  onUploaded: (url: string) => void;
+  condominiumId: string;
+  baseUrl: string;
+  generateFavicons?: boolean;
+  onFaviconsGenerated?: (favicon32: string, favicon180: string) => void;
+}
+
+function LogoUploader({
+  label, hint, currentUrl, onUploaded,
+  condominiumId, baseUrl, generateFavicons, onFaviconsGenerated,
+}: LogoUploaderProps) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+  const { toast } = useToast();
+
+  async function handleFile(file: File) {
+    if (!file.type.startsWith('image/') && !file.name.match(/\.(svg|ico)$/i)) {
+      setError('Solo se permiten imágenes (png, jpg, webp, svg, gif)');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('El archivo no debe superar 5 MB');
+      return;
+    }
+    setError(null);
+    setUploading(true);
+    setDone(false);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const { data } = await api.post<{ url: string }>(
+        `/condominiums/${condominiumId}/branding/upload`,
+        fd,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      );
+      const fullUrl = `${baseUrl}${data.url}`;
+      onUploaded(fullUrl);
+      setDone(true);
+
+      // Generate favicons from this image if requested
+      if (generateFavicons && onFaviconsGenerated) {
+        try {
+          const [blob32, blob180] = await Promise.all([
+            resizeImageToBlob(fullUrl, 32),
+            resizeImageToBlob(fullUrl, 180),
+          ]);
+          const ts = Date.now();
+          const [url32, url180] = await Promise.all([
+            uploadBlobAsFile(blob32, `favicon-32-${ts}.png`, condominiumId, baseUrl),
+            uploadBlobAsFile(blob180, `favicon-180-${ts}.png`, condominiumId, baseUrl),
+          ]);
+          onFaviconsGenerated(url32, url180);
+          toast({ title: 'Favicons generados', description: 'Se crearon 32×32 y 180×180 automáticamente.' });
+        } catch {
+          toast({ title: 'Aviso', description: 'Logo subido, pero no se pudieron generar los favicons automáticamente.', variant: 'destructive' });
+        }
+      }
+    } catch {
+      setError('Error al subir el archivo. Intenta de nuevo.');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function onInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
+    e.target.value = '';
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFile(file);
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <Label className="text-sm font-medium">{label}</Label>
+          <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>
+        </div>
+        {done && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />}
+      </div>
+
+      {/* Drop zone */}
+      <label
+        className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/30 px-4 py-5 text-center transition-colors hover:border-primary/50 hover:bg-muted/50"
+        onDrop={onDrop}
+        onDragOver={e => e.preventDefault()}
+      >
+        <input type="file" accept="image/*,.ico,.svg" className="sr-only" onChange={onInputChange} disabled={uploading} />
+        {uploading ? (
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        ) : (
+          <Upload className="h-6 w-6 text-muted-foreground" />
+        )}
+        <span className="text-xs text-muted-foreground">
+          {uploading ? 'Subiendo…' : 'Arrastra o haz clic para seleccionar'}
+        </span>
+      </label>
+
+      {/* Error */}
+      {error && (
+        <p className="flex items-center gap-1.5 text-xs text-destructive">
+          <X className="h-3.5 w-3.5" /> {error}
+        </p>
+      )}
+
+      {/* Current preview */}
+      {currentUrl && (
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-2">
+          <img
+            src={currentUrl}
+            alt={label}
+            className="h-10 w-auto max-w-[120px] rounded object-contain"
+            onError={e => (e.currentTarget.style.display = 'none')}
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground truncate">{currentUrl.split('/').pop()}</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+            onClick={() => { onUploaded(''); setDone(false); }}
+            title="Quitar"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Constants ─────────────────────────────────────────────────
 
 const FONT_OPTIONS = [
@@ -220,6 +405,8 @@ const RADIUS_OPTIONS = [
 ];
 
 // ── Main page ─────────────────────────────────────────────────
+
+const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 export default function AdminBranding() {
   const { branding, isLoading } = useBranding();
@@ -412,34 +599,42 @@ export default function AdminBranding() {
                 <CardTitle className="flex items-center gap-2 text-base">
                   <ImageIcon className="h-4 w-4" /> Logotipos
                 </CardTitle>
-                <CardDescription>URLs de imágenes alojadas externamente (HTTPS).</CardDescription>
+                <CardDescription>
+                  Sube archivos desde tu dispositivo (PNG, JPG, SVG, WebP — máx. 5 MB).
+                  Al subir el isotipo se generan los favicons automáticamente.
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-3">
-                  {[
-                    { key: 'logoUrl' as const, label: 'Logo completo', hint: 'Horizontal / con nombre' },
-                    { key: 'logoMarkUrl' as const, label: 'Isotipo', hint: 'Solo el ícono / marca' },
-                    { key: 'faviconUrl' as const, label: 'Favicon', hint: '32×32 px, .ico o .png' },
-                  ].map(({ key, label, hint }) => (
-                    <div key={key} className="space-y-1.5">
-                      <Label>{label}</Label>
-                      <p className="text-xs text-muted-foreground">{hint}</p>
-                      <Input
-                        value={form[key] ?? ''}
-                        onChange={e => updateField(key, e.target.value || null)}
-                        placeholder="https://..."
-                      />
-                      {form[key] && (
-                        <img
-                          src={form[key]!}
-                          alt={label}
-                          className="mt-1 h-10 w-auto rounded border border-border object-contain"
-                          onError={e => (e.currentTarget.style.display = 'none')}
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
+              <CardContent className="grid gap-6 sm:grid-cols-3">
+                <LogoUploader
+                  label="Logo completo"
+                  hint="Versión horizontal con nombre"
+                  currentUrl={form.logoUrl}
+                  condominiumId={tenantId!}
+                  baseUrl={API_BASE}
+                  onUploaded={url => { updateField('logoUrl', url || null); }}
+                />
+                <LogoUploader
+                  label="Isotipo / Ícono"
+                  hint="Solo el símbolo. Genera favicons automáticamente."
+                  currentUrl={form.logoMarkUrl}
+                  condominiumId={tenantId!}
+                  baseUrl={API_BASE}
+                  generateFavicons
+                  onUploaded={url => { updateField('logoMarkUrl', url || null); }}
+                  onFaviconsGenerated={(url32, url180) => {
+                    updateField('faviconUrl', url32);
+                    // store 180px as logoMarkUrl backup isn't needed — just inform
+                    void url180;
+                  }}
+                />
+                <LogoUploader
+                  label="Favicon"
+                  hint="32×32 px. Se genera automáticamente del isotipo."
+                  currentUrl={form.faviconUrl}
+                  condominiumId={tenantId!}
+                  baseUrl={API_BASE}
+                  onUploaded={url => { updateField('faviconUrl', url || null); }}
+                />
               </CardContent>
             </Card>
 
