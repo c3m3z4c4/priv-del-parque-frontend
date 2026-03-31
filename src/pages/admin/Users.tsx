@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
+import { ColumnDef } from '@tanstack/react-table';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { TenantGuard } from '@/components/TenantGuard';
 import { UserFormDialog } from '@/components/admin/UserFormDialog';
 import { DeleteUserDialog } from '@/components/admin/DeleteUserDialog';
-import { TablePagination, paginate } from '@/components/admin/TablePagination';
+import { DataTable } from '@/components/admin/DataTable';
 import { exportToCSV } from '@/lib/exportCSV';
 import { useUsersQuery, useCreateUser, useUpdateUser, useDeleteUser, useHousesQuery } from '@/hooks/useApi';
 import { User } from '@/types';
@@ -12,11 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, Users as UsersIcon, Loader2, Shield, Home, Search, Download } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users as UsersIcon, Shield, Home, Search, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminUsers() {
@@ -32,8 +30,6 @@ export default function AdminUsers() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'RESIDENT' | 'CONDO_ADMIN'>('all');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
 
   const handleCreate = () => { setSelectedUser(null); setFormOpen(true); };
   const handleEdit = (u: User) => { setSelectedUser(u); setFormOpen(true); };
@@ -85,15 +81,57 @@ export default function AdminUsers() {
     });
   }, [users, search, roleFilter]);
 
-  if (isLoading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  const columns = useMemo<ColumnDef<User>[]>(() => [
+    {
+      id: 'nombre',
+      accessorFn: row => `${row.name} ${row.lastName}`,
+      header: 'Nombre',
+      cell: ({ row }) => <span className="font-medium">{row.original.name} {row.original.lastName}</span>,
+    },
+    {
+      accessorKey: 'email',
+      header: 'Email',
+      cell: ({ row }) => <span className="text-muted-foreground">{row.original.email}</span>,
+      meta: { className: 'hidden sm:table-cell', headerClassName: 'hidden sm:table-cell' },
+    },
+    {
+      accessorKey: 'role',
+      header: 'Rol',
+      cell: ({ row }) => {
+        const admin = isAdmin(row.original);
+        return (
+          <Badge variant={admin ? 'default' : 'secondary'} className="gap-1">
+            {admin ? <Shield className="h-3 w-3" /> : <Home className="h-3 w-3" />}
+            {admin ? 'Admin' : 'Vecino'}
+          </Badge>
+        );
+      },
+    },
+    {
+      id: 'casa',
+      header: 'Casa',
+      enableSorting: false,
+      cell: ({ row }) => <span className="text-muted-foreground">{getHouseNumber(row.original.houseId)}</span>,
+      meta: { className: 'hidden md:table-cell', headerClassName: 'hidden md:table-cell' },
+    },
+    {
+      id: 'acciones',
+      header: () => <span className="sr-only">Acciones</span>,
+      enableSorting: false,
+      enableHiding: false,
+      cell: ({ row }) => (
+        <div className="flex justify-end gap-1">
+          <Button variant="ghost" size="icon" onClick={() => handleEdit(row.original)} title="Editar">
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => handleDelete(row.original)} title="Eliminar" className="text-destructive hover:text-destructive">
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
-      </AdminLayout>
-    );
-  }
+      ),
+    },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [houses]);
 
   return (
     <AdminLayout>
@@ -139,63 +177,28 @@ export default function AdminUsers() {
 
         <Card className="shadow-card">
           <CardContent className="p-0">
-            {users.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16">
-                <UsersIcon className="h-12 w-12 text-muted-foreground/40" />
-                <p className="mt-4 text-lg font-medium">No hay usuarios</p>
-                <p className="text-sm text-muted-foreground">Registra el primer usuario</p>
-                <Button onClick={handleCreate} className="mt-4 gap-2" variant="outline">
-                  <Plus className="h-4 w-4" /> Crear usuario
-                </Button>
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16">
-                <Search className="h-10 w-10 text-muted-foreground/40" />
-                <p className="mt-3 text-sm text-muted-foreground">No se encontraron resultados</p>
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Nombre</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Rol</TableHead>
-                        <TableHead className="hidden md:table-cell">Casa</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginate(filtered, page, pageSize).map((u) => (
-                        <TableRow key={u.id}>
-                          <TableCell className="font-medium">{u.name} {u.lastName}</TableCell>
-                          <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                          <TableCell>
-                            <Badge variant={isAdmin(u) ? 'default' : 'secondary'} className="gap-1">
-                              {isAdmin(u) ? <Shield className="h-3 w-3" /> : <Home className="h-3 w-3" />}
-                              {isAdmin(u) ? 'Admin' : 'Vecino'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell">{getHouseNumber(u.houseId)}</TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-1">
-                              <Button variant="ghost" size="icon" onClick={() => handleEdit(u)} title="Editar">
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleDelete(u)} title="Eliminar" className="text-destructive hover:text-destructive">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                <TablePagination totalItems={filtered.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
-              </>
-            )}
+            <DataTable
+              columns={columns}
+              data={filtered}
+              isLoading={isLoading}
+              emptyState={
+                users.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16">
+                    <UsersIcon className="h-12 w-12 text-muted-foreground/40" />
+                    <p className="mt-4 text-lg font-medium">No hay usuarios</p>
+                    <p className="text-sm text-muted-foreground">Registra el primer usuario</p>
+                    <Button onClick={handleCreate} className="mt-4 gap-2" variant="outline">
+                      <Plus className="h-4 w-4" /> Crear usuario
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16">
+                    <Search className="h-10 w-10 text-muted-foreground/40" />
+                    <p className="mt-3 text-sm text-muted-foreground">No se encontraron resultados</p>
+                  </div>
+                )
+              }
+            />
           </CardContent>
         </Card>
       </div>

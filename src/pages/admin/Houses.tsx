@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { ColumnDef } from '@tanstack/react-table';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { TenantGuard } from '@/components/TenantGuard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,13 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Pencil, Trash2, Home, Search, Download } from 'lucide-react';
 import { useHousesQuery, useCreateHouse, useUpdateHouse, useDeleteHouse } from '@/hooks/useApi';
 import { House } from '@/types';
 import { HouseFormDialog } from '@/components/admin/HouseFormDialog';
 import { DeleteHouseDialog } from '@/components/admin/DeleteHouseDialog';
-import { TablePagination, paginate } from '@/components/admin/TablePagination';
+import { DataTable } from '@/components/admin/DataTable';
 import { exportToCSV } from '@/lib/exportCSV';
 import { useToast } from '@/hooks/use-toast';
 
@@ -27,8 +27,6 @@ export default function AdminHouses() {
   const [selectedHouse, setSelectedHouse] = useState<House | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
 
   const handleCreate = () => { setSelectedHouse(null); setFormOpen(true); };
   const handleEdit = (house: House) => { setSelectedHouse(house); setFormOpen(true); };
@@ -78,6 +76,54 @@ export default function AdminHouses() {
 
   const activeCount = houses.filter(h => h.status === 'active').length;
 
+  const columns = useMemo<ColumnDef<House>[]>(() => [
+    {
+      accessorKey: 'houseNumber',
+      header: 'Número',
+      cell: ({ row }) => <span className="font-medium">{row.original.houseNumber}</span>,
+    },
+    {
+      id: 'residentes',
+      header: 'Residentes',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">{getResidentsDisplay(row.original)}</span>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: 'Estado',
+      cell: ({ row }) => (
+        <Badge variant={row.original.status === 'active' ? 'default' : 'secondary'}>
+          {row.original.status === 'active' ? 'Activa' : 'Inactiva'}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: 'createdAt',
+      header: 'Registro',
+      cell: ({ row }) => <span className="text-muted-foreground">{row.original.createdAt}</span>,
+      meta: { className: 'hidden md:table-cell', headerClassName: 'hidden md:table-cell' },
+    },
+    {
+      id: 'acciones',
+      header: () => <span className="sr-only">Acciones</span>,
+      enableSorting: false,
+      enableHiding: false,
+      cell: ({ row }) => (
+        <div className="flex justify-end gap-1">
+          <Button variant="ghost" size="icon" onClick={() => handleEdit(row.original)}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(row.original)}>
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+      ),
+    },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], []);
+
   return (
     <AdminLayout>
       <TenantGuard>
@@ -122,54 +168,29 @@ export default function AdminHouses() {
               <Home className="h-5 w-5" /> Directorio de Casas
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <p className="py-8 text-center text-muted-foreground">Cargando...</p>
-            ) : houses.length === 0 ? (
-              <p className="py-8 text-center text-muted-foreground">No hay casas registradas.</p>
-            ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <Search className="h-10 w-10 text-muted-foreground/40" />
-                <p className="mt-3 text-sm text-muted-foreground">No se encontraron resultados</p>
-              </div>
-            ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Número</TableHead>
-                      <TableHead>Residentes</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Registro</TableHead>
-                      <TableHead className="text-right">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginate(filtered, page, pageSize).map(house => (
-                      <TableRow key={house.id}>
-                        <TableCell className="font-medium">{house.houseNumber}</TableCell>
-                        <TableCell className="text-muted-foreground">{getResidentsDisplay(house)}</TableCell>
-                        <TableCell>
-                          <Badge variant={house.status === 'active' ? 'default' : 'secondary'}>
-                            {house.status === 'active' ? 'Activa' : 'Inactiva'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{house.createdAt}</TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(house)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(house)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                <TablePagination totalItems={filtered.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
-              </>
-            )}
+          <CardContent className="p-0">
+            <DataTable
+              columns={columns}
+              data={filtered}
+              isLoading={isLoading}
+              emptyState={
+                houses.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16">
+                    <Home className="h-12 w-12 text-muted-foreground/40" />
+                    <p className="mt-4 text-lg font-medium">No hay casas registradas</p>
+                    <p className="text-sm text-muted-foreground">Registra la primera casa</p>
+                    <Button onClick={handleCreate} className="mt-4 gap-2" variant="outline">
+                      <Plus className="h-4 w-4" /> Nueva Casa
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <Search className="h-10 w-10 text-muted-foreground/40" />
+                    <p className="mt-3 text-sm text-muted-foreground">No se encontraron resultados</p>
+                  </div>
+                )
+              }
+            />
           </CardContent>
         </Card>
       </div>

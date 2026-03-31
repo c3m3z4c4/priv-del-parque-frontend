@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
+import { ColumnDef } from '@tanstack/react-table';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { TenantGuard } from '@/components/TenantGuard';
 import { MeetingFormDialog } from '@/components/admin/MeetingFormDialog';
 import { DeleteMeetingDialog } from '@/components/admin/DeleteMeetingDialog';
-import { TablePagination, paginate } from '@/components/admin/TablePagination';
+import { DataTable } from '@/components/admin/DataTable';
 import { exportToCSV } from '@/lib/exportCSV';
 import { useMeetingsQuery, useCreateMeeting, useUpdateMeeting, useDeleteMeeting } from '@/hooks/useApi';
 import { Meeting } from '@/types';
@@ -11,11 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, Calendar, MapPin, Clock, Loader2, Search, Download } from 'lucide-react';
+import { Plus, Pencil, Trash2, Calendar, MapPin, Clock, Search, Download } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
@@ -33,8 +31,6 @@ export default function AdminMeetings() {
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'upcoming' | 'past'>('all');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
 
   const handleCreate = () => { setSelectedMeeting(null); setFormOpen(true); };
   const handleEdit = (meeting: Meeting) => { setSelectedMeeting(meeting); setFormOpen(true); };
@@ -80,15 +76,79 @@ export default function AdminMeetings() {
       .sort((a, b) => b.date.localeCompare(a.date));
   }, [meetings, search, statusFilter]);
 
-  if (isLoading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  const columns = useMemo<ColumnDef<Meeting>[]>(() => [
+    {
+      accessorKey: 'title',
+      header: 'Título',
+      cell: ({ row }) => (
+        <span className="font-medium max-w-[200px] truncate block">{row.original.title}</span>
+      ),
+    },
+    {
+      accessorKey: 'date',
+      header: 'Fecha',
+      cell: ({ row }) => (
+        <span className="flex items-center gap-1.5 whitespace-nowrap">
+          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+          {format(parseISO(row.original.date), 'dd MMM yyyy', { locale: es })}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'startTime',
+      header: 'Hora',
+      cell: ({ row }) => (
+        <span className="flex items-center gap-1.5 whitespace-nowrap">
+          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+          {row.original.startTime}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'location',
+      header: 'Ubicación',
+      cell: ({ row }) => (
+        <span className="flex items-center gap-1.5">
+          <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+          {row.original.location}
+        </span>
+      ),
+      meta: { className: 'hidden md:table-cell', headerClassName: 'hidden md:table-cell' },
+    },
+    {
+      id: 'estado',
+      header: 'Estado',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const past = isPast(parseISO(row.original.date));
+        return <Badge variant={past ? 'secondary' : 'default'}>{past ? 'Pasada' : 'Próxima'}</Badge>;
+      },
+    },
+    {
+      id: 'rsvp',
+      header: 'RSVP',
+      enableSorting: false,
+      cell: ({ row }) => <RsvpCount targetType="meeting" targetId={row.original.id} />,
+      meta: { className: 'hidden sm:table-cell', headerClassName: 'hidden sm:table-cell' },
+    },
+    {
+      id: 'acciones',
+      header: () => <span className="sr-only">Acciones</span>,
+      enableSorting: false,
+      enableHiding: false,
+      cell: ({ row }) => (
+        <div className="flex justify-end gap-1">
+          <Button variant="ghost" size="icon" onClick={() => handleEdit(row.original)} title="Editar">
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => handleDelete(row.original)} title="Eliminar" className="text-destructive hover:text-destructive">
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
-      </AdminLayout>
-    );
-  }
+      ),
+    },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], []);
 
   return (
     <AdminLayout>
@@ -135,85 +195,28 @@ export default function AdminMeetings() {
 
         <Card className="shadow-card">
           <CardContent className="p-0">
-            {meetings.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16">
-                <Calendar className="h-12 w-12 text-muted-foreground/40" />
-                <p className="mt-4 text-lg font-medium">No hay reuniones</p>
-                <p className="text-sm text-muted-foreground">Crea tu primera reunión vecinal</p>
-                <Button onClick={handleCreate} className="mt-4 gap-2" variant="outline">
-                  <Plus className="h-4 w-4" /> Crear reunión
-                </Button>
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16">
-                <Search className="h-10 w-10 text-muted-foreground/40" />
-                <p className="mt-3 text-sm text-muted-foreground">No se encontraron resultados</p>
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Título</TableHead>
-                        <TableHead>Fecha</TableHead>
-                        <TableHead>Hora</TableHead>
-                        <TableHead className="hidden md:table-cell">Ubicación</TableHead>
-                        <TableHead>Estado</TableHead>
-                        <TableHead>RSVP</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginate(filtered, page, pageSize).map((meeting) => {
-                        const meetingDate = parseISO(meeting.date);
-                        const past = isPast(meetingDate);
-                        return (
-                          <TableRow key={meeting.id}>
-                            <TableCell className="font-medium max-w-[200px] truncate">{meeting.title}</TableCell>
-                            <TableCell className="whitespace-nowrap">
-                              <span className="flex items-center gap-1.5">
-                                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                                {format(meetingDate, 'dd MMM yyyy', { locale: es })}
-                              </span>
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap">
-                              <span className="flex items-center gap-1.5">
-                                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                                {meeting.startTime}
-                              </span>
-                            </TableCell>
-                            <TableCell className="hidden md:table-cell">
-                              <span className="flex items-center gap-1.5">
-                                <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                                {meeting.location}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={past ? 'secondary' : 'default'}>{past ? 'Pasada' : 'Próxima'}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <RsvpCount targetType="meeting" targetId={meeting.id} />
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-1">
-                                <Button variant="ghost" size="icon" onClick={() => handleEdit(meeting)} title="Editar">
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleDelete(meeting)} title="Eliminar" className="text-destructive hover:text-destructive">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-                <TablePagination totalItems={filtered.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
-              </>
-            )}
+            <DataTable
+              columns={columns}
+              data={filtered}
+              isLoading={isLoading}
+              emptyState={
+                meetings.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16">
+                    <Calendar className="h-12 w-12 text-muted-foreground/40" />
+                    <p className="mt-4 text-lg font-medium">No hay reuniones</p>
+                    <p className="text-sm text-muted-foreground">Crea tu primera reunión vecinal</p>
+                    <Button onClick={handleCreate} className="mt-4 gap-2" variant="outline">
+                      <Plus className="h-4 w-4" /> Crear reunión
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16">
+                    <Search className="h-10 w-10 text-muted-foreground/40" />
+                    <p className="mt-3 text-sm text-muted-foreground">No se encontraron resultados</p>
+                  </div>
+                )
+              }
+            />
           </CardContent>
         </Card>
       </div>

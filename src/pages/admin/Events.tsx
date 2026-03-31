@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
+import { ColumnDef } from '@tanstack/react-table';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { TenantGuard } from '@/components/TenantGuard';
 import { EventFormDialog } from '@/components/admin/EventFormDialog';
 import { DeleteEventDialog } from '@/components/admin/DeleteEventDialog';
-import { TablePagination, paginate } from '@/components/admin/TablePagination';
+import { DataTable } from '@/components/admin/DataTable';
 import { exportToCSV } from '@/lib/exportCSV';
 import { useEventsQuery, useCreateEvent, useUpdateEvent, useDeleteEvent } from '@/hooks/useApi';
 import { GreenAreaEvent } from '@/types';
@@ -11,16 +12,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, TreePine, Calendar, Clock, MapPin, Loader2, Search, Download } from 'lucide-react';
+import { Plus, Pencil, Trash2, TreePine, Calendar, Clock, MapPin, Search, Download } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
-const greenAreas = ['Jardín Central', 'Área de Convivencia Norte', 'Área de Convivencia Sur', 'Explanada Principal', 'Parque Infantil', 'Zona de Asadores'];
 import { RsvpCount } from '@/components/RsvpButtons';
+
+const greenAreas = ['Jardín Central', 'Área de Convivencia Norte', 'Área de Convivencia Sur', 'Explanada Principal', 'Parque Infantil', 'Zona de Asadores'];
 
 export default function AdminEvents() {
   const { data: events = [], isLoading } = useEventsQuery();
@@ -35,8 +34,6 @@ export default function AdminEvents() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'upcoming' | 'past'>('all');
   const [areaFilter, setAreaFilter] = useState<string>('all');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
 
   const handleCreate = () => { setSelectedEvent(null); setFormOpen(true); };
   const handleEdit = (ev: GreenAreaEvent) => { setSelectedEvent(ev); setFormOpen(true); };
@@ -83,15 +80,78 @@ export default function AdminEvents() {
       .sort((a, b) => b.date.localeCompare(a.date));
   }, [events, search, statusFilter, areaFilter]);
 
-  if (isLoading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  const columns = useMemo<ColumnDef<GreenAreaEvent>[]>(() => [
+    {
+      accessorKey: 'title',
+      header: 'Título',
+      cell: ({ row }) => (
+        <span className="font-medium max-w-[200px] truncate block">{row.original.title}</span>
+      ),
+    },
+    {
+      accessorKey: 'greenArea',
+      header: 'Área Verde',
+      cell: ({ row }) => (
+        <span className="flex items-center gap-1.5">
+          <MapPin className="h-3.5 w-3.5 text-muted-foreground" />{row.original.greenArea}
+        </span>
+      ),
+      meta: { className: 'hidden sm:table-cell', headerClassName: 'hidden sm:table-cell' },
+    },
+    {
+      accessorKey: 'date',
+      header: 'Fecha',
+      cell: ({ row }) => (
+        <span className="flex items-center gap-1.5 whitespace-nowrap">
+          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+          {format(parseISO(row.original.date), 'dd MMM yyyy', { locale: es })}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'startTime',
+      header: 'Hora',
+      cell: ({ row }) => (
+        <span className="flex items-center gap-1.5 whitespace-nowrap">
+          <Clock className="h-3.5 w-3.5 text-muted-foreground" />{row.original.startTime}
+        </span>
+      ),
+      meta: { className: 'hidden md:table-cell', headerClassName: 'hidden md:table-cell' },
+    },
+    {
+      id: 'estado',
+      header: 'Estado',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const past = isPast(parseISO(row.original.date));
+        return <Badge variant={past ? 'secondary' : 'default'}>{past ? 'Pasado' : 'Próximo'}</Badge>;
+      },
+    },
+    {
+      id: 'rsvp',
+      header: 'RSVP',
+      enableSorting: false,
+      cell: ({ row }) => <RsvpCount targetType="event" targetId={row.original.id} />,
+      meta: { className: 'hidden sm:table-cell', headerClassName: 'hidden sm:table-cell' },
+    },
+    {
+      id: 'acciones',
+      header: () => <span className="sr-only">Acciones</span>,
+      enableSorting: false,
+      enableHiding: false,
+      cell: ({ row }) => (
+        <div className="flex justify-end gap-1">
+          <Button variant="ghost" size="icon" onClick={() => handleEdit(row.original)} title="Editar">
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => handleDelete(row.original)} title="Eliminar" className="text-destructive hover:text-destructive">
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
-      </AdminLayout>
-    );
-  }
+      ),
+    },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], []);
 
   return (
     <AdminLayout>
@@ -147,83 +207,28 @@ export default function AdminEvents() {
 
         <Card className="shadow-card">
           <CardContent className="p-0">
-            {events.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16">
-                <TreePine className="h-12 w-12 text-muted-foreground/40" />
-                <p className="mt-4 text-lg font-medium">No hay eventos</p>
-                <p className="text-sm text-muted-foreground">Crea tu primer evento en área verde</p>
-                <Button onClick={handleCreate} className="mt-4 gap-2" variant="outline">
-                  <Plus className="h-4 w-4" /> Crear evento
-                </Button>
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16">
-                <Search className="h-10 w-10 text-muted-foreground/40" />
-                <p className="mt-3 text-sm text-muted-foreground">No se encontraron resultados</p>
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Título</TableHead>
-                        <TableHead>Área Verde</TableHead>
-                        <TableHead>Fecha</TableHead>
-                        <TableHead>Hora</TableHead>
-                        <TableHead>Estado</TableHead>
-                        <TableHead>RSVP</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginate(filtered, page, pageSize).map((ev) => {
-                        const evDate = parseISO(ev.date);
-                        const past = isPast(evDate);
-                        return (
-                          <TableRow key={ev.id}>
-                            <TableCell className="font-medium max-w-[200px] truncate">{ev.title}</TableCell>
-                            <TableCell>
-                              <span className="flex items-center gap-1.5">
-                                <MapPin className="h-3.5 w-3.5 text-muted-foreground" />{ev.greenArea}
-                              </span>
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap">
-                              <span className="flex items-center gap-1.5">
-                                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                                {format(evDate, 'dd MMM yyyy', { locale: es })}
-                              </span>
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap">
-                              <span className="flex items-center gap-1.5">
-                                <Clock className="h-3.5 w-3.5 text-muted-foreground" />{ev.startTime}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={past ? 'secondary' : 'default'}>{past ? 'Pasado' : 'Próximo'}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <RsvpCount targetType="event" targetId={ev.id} />
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-1">
-                                <Button variant="ghost" size="icon" onClick={() => handleEdit(ev)} title="Editar">
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleDelete(ev)} title="Eliminar" className="text-destructive hover:text-destructive">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-                <TablePagination totalItems={filtered.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
-              </>
-            )}
+            <DataTable
+              columns={columns}
+              data={filtered}
+              isLoading={isLoading}
+              emptyState={
+                events.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16">
+                    <TreePine className="h-12 w-12 text-muted-foreground/40" />
+                    <p className="mt-4 text-lg font-medium">No hay eventos</p>
+                    <p className="text-sm text-muted-foreground">Crea tu primer evento en área verde</p>
+                    <Button onClick={handleCreate} className="mt-4 gap-2" variant="outline">
+                      <Plus className="h-4 w-4" /> Crear evento
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16">
+                    <Search className="h-10 w-10 text-muted-foreground/40" />
+                    <p className="mt-3 text-sm text-muted-foreground">No se encontraron resultados</p>
+                  </div>
+                )
+              }
+            />
           </CardContent>
         </Card>
       </div>
